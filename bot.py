@@ -384,16 +384,27 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # ==========================================
-# MAIN
+# RUN — async, called from its own event loop in main.py
 # ==========================================
-def main():
+async def run():
     app = Application.builder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(callback))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle))
 
     logger.info("⚡ Bot started")
-    app.run_polling(drop_pending_updates=True)
+
+    async with app:
+        await app.initialize()
+        await app.start()
+        await app.updater.start_polling(drop_pending_updates=True)
+        logger.info("⚡ Bot is polling...")
+        # Keep running forever
+        await asyncio.Event().wait()
+
+
+def main():
+    asyncio.run(run())
 
 
 if __name__ == "__main__":

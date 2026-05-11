@@ -1,12 +1,11 @@
 """
 main.py — Entry point for Render
-Starts the Telegram bot in a background thread,
-then runs Waitress (web dashboard) in the main thread.
-Waitress is thread-safe and works in any thread context.
-Gunicorn requires the main thread — that's why we flipped it.
+Runs the Telegram bot in a separate asyncio event loop (its own thread),
+and Waitress web dashboard in the main thread.
 """
 
 import threading
+import asyncio
 import logging
 import os
 
@@ -18,9 +17,14 @@ logger = logging.getLogger(__name__)
 
 
 def start_bot():
-    from bot import main
-    logger.info("Starting Telegram bot...")
-    main()
+    """Run bot in its own dedicated event loop — avoids asyncio conflicts."""
+    import bot
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        loop.run_until_complete(bot.run())
+    finally:
+        loop.close()
 
 
 def start_web():
@@ -30,9 +34,8 @@ def start_web():
 
 
 if __name__ == "__main__":
-    # Bot runs in background thread
-    bot_thread = threading.Thread(target=start_bot, daemon=True)
+    bot_thread = threading.Thread(target=start_bot, daemon=True, name="BotThread")
     bot_thread.start()
 
-    # Web (Waitress) runs in main thread — no signal issues
+    # Web runs in main thread
     start_web()
