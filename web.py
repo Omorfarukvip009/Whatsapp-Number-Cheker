@@ -1,6 +1,6 @@
 """
 Web Dashboard for WhatsApp Checker Bot
-Flask app — runs alongside the bot via threading
+Flask app — runs via Gunicorn (production WSGI server)
 """
 
 import os
@@ -54,7 +54,6 @@ def dashboard():
     state = load_state()
     now = int(time.time())
 
-    # Build enriched user list
     users = []
     for uid, u in state["users"].items():
         reset_in = max(0, u.get("hour_reset", now) - now)
@@ -141,7 +140,6 @@ def ban_user(uid):
     state = load_state()
     if uid in state["users"]:
         state["users"][uid]["banned"] = True
-    # Remove from approved
     if uid in state["approved_users"]:
         state["approved_users"].remove(uid)
     save_state(state)
@@ -203,21 +201,17 @@ def remove_admin(uid):
 def update_api():
     data = request.get_json()
     screen_url = data.get("screen_url", "").strip()
-
     if not screen_url:
         return jsonify({"ok": False, "message": "URL is empty"})
-
     try:
         base = screen_url.split("/screen")[0]
         token = screen_url.split("token=")[1].split("&")[0]
         api_url = base + "/checkPhones"
-
         state = load_state()
         state["api_url"] = api_url
         state["api_token"] = token
         state["api_screen_url"] = screen_url
         save_state(state)
-
         return jsonify({"ok": True, "message": "API updated", "api_url": api_url})
     except Exception as e:
         return jsonify({"ok": False, "message": f"Invalid URL: {e}"})
@@ -249,11 +243,36 @@ def api_stats():
 
 
 # ==========================================
-# RUN (used by main.py)
+# RUN via Gunicorn (production WSGI)
 # ==========================================
 def run_web(host="0.0.0.0", port=None):
+    import gunicorn.app.base
+
     port = port or int(os.environ.get("PORT", 5000))
-    app.run(host=host, port=port, debug=False, use_reloader=False)
+
+    class StandaloneApp(gunicorn.app.base.BaseApplication):
+        def __init__(self, application, options=None):
+            self.options = options or {}
+            self.application = application
+            super().__init__()
+
+        def load_config(self):
+            for key, value in self.options.items():
+                self.cfg.set(key.lower(), value)
+
+        def load(self):
+            return self.application
+
+    options = {
+        "bind": f"{host}:{port}",
+        "workers": 1,       # must be 1 — shares state file with bot thread
+        "threads": 4,
+        "timeout": 60,
+        "loglevel": "warning",
+        "accesslog": "-",
+    }
+
+    StandaloneApp(app, options).run()
 
 
 if __name__ == "__main__":
