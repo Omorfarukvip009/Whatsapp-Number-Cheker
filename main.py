@@ -44,7 +44,7 @@ from telegram.ext import (
 # ==========================================
 # CONFIG
 # ==========================================
-BOT_TOKEN = "YOUR_BOT_TOKEN"
+BOT_TOKEN = os.getenv("BOT_TOKEN")
 
 # MULTIPLE ADMINS
 ADMIN_IDS = {
