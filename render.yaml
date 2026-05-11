@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: whatsapp-checker-bot
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python main.py
+    envVars:
+      - key: BOT_TOKEN
+        sync: false
+      - key: ADMIN_IDS
+        sync: false
+      - key: DASHBOARD_PASSWORD
+        sync: false
+      - key: DASHBOARD_SECRET
+        sync: false
+      - key: MAX_NUMBERS
+        value: "100"
+      - key: HOURLY_LIMIT
+        value: "400"
+      - key: BATCH_SIZE
+        value: "10"
+
