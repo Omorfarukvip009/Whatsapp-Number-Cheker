@@ -1,6 +1,7 @@
 {
-  "name": "ultra-fast-bot",
+  "name": "telegram-checker-bot",
   "version": "1.0.0",
+  "description": "Telegram Number Checker Bot",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
