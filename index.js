@@ -12,6 +12,7 @@ const ADMIN_IDS = [
   6786393087
 ];
 
+// DEFAULT API
 let API_URL = 'https://api.maytapi.com/api/default/checkPhones';
 let API_TOKEN = 'default_token';
 
@@ -27,16 +28,19 @@ const bot = new TelegramBot(BOT_TOKEN, {
 });
 
 // ==========================================
-// EXPRESS WEB SERVER
+// WEB SERVER
 // ==========================================
 const app = express();
 
 const START_TIME = Date.now();
+
 let BOT_STATUS = 'Online ✅';
 
 app.get('/', (req, res) => {
 
-  const uptime = Math.floor((Date.now() - START_TIME) / 1000);
+  const uptime = Math.floor(
+    (Date.now() - START_TIME) / 1000
+  );
 
   const hours = Math.floor(uptime / 3600);
   const minutes = Math.floor((uptime % 3600) / 60);
@@ -45,41 +49,43 @@ app.get('/', (req, res) => {
   res.send(`
   <html>
   <head>
-    <title>Telegram Bot Status</title>
+    <title>Bot Status</title>
 
     <style>
-      body {
-        background: #0f172a;
-        color: white;
-        font-family: Arial;
-        text-align: center;
-        padding-top: 100px;
+      body{
+        background:#0f172a;
+        color:white;
+        font-family:Arial;
+        text-align:center;
+        padding-top:100px;
       }
 
-      .box {
-        display: inline-block;
-        background: #1e293b;
-        padding: 40px;
-        border-radius: 20px;
-        box-shadow: 0 0 30px rgba(0,0,0,0.4);
+      .box{
+        display:inline-block;
+        background:#1e293b;
+        padding:40px;
+        border-radius:20px;
       }
 
-      h1 {
-        color: #22c55e;
+      h1{
+        color:#22c55e;
       }
     </style>
+
   </head>
 
   <body>
 
     <div class="box">
+
       <h1>⚡ Telegram Bot Running</h1>
 
-      <p>Status: ${BOT_STATUS}</p>
+      <p>${BOT_STATUS}</p>
 
       <h2>
         ${hours}h ${minutes}m ${seconds}s
       </h2>
+
     </div>
 
   </body>
@@ -90,16 +96,20 @@ app.get('/', (req, res) => {
 const PORT = process.env.PORT || 10000;
 
 app.listen(PORT, () => {
-  console.log(`Web server running on ${PORT}`);
+  console.log(`Web running on ${PORT}`);
 });
 
 // ==========================================
 // MEMORY
 // ==========================================
 const users = {};
+
 const approvedUsers = new Set();
+
 const pendingUsers = {};
+
 const waitingNumbers = new Set();
+
 const waitingUrl = new Set();
 
 // ==========================================
@@ -114,6 +124,7 @@ function initUser(msg) {
   const uid = String(msg.from.id);
 
   if (!users[uid]) {
+
     users[uid] = {
       name: msg.from.first_name || 'Unknown',
       hour_count: 0,
@@ -125,8 +136,11 @@ function initUser(msg) {
 function resetLimit(uid) {
 
   if (Date.now() >= users[uid].hour_reset) {
+
     users[uid].hour_count = 0;
-    users[uid].hour_reset = Date.now() + 3600000;
+
+    users[uid].hour_reset =
+      Date.now() + 3600000;
   }
 }
 
@@ -137,6 +151,7 @@ function keyboard(id) {
   ];
 
   if (isAdmin(id)) {
+
     rows.push(['Set Url']);
     rows.push(['User Request']);
   }
@@ -159,14 +174,17 @@ function splitArray(array, size) {
   const result = [];
 
   for (let i = 0; i < array.length; i += size) {
-    result.push(array.slice(i, i + size));
+
+    result.push(
+      array.slice(i, i + size)
+    );
   }
 
   return result;
 }
 
 // ==========================================
-// FAST API CHECK
+// FIXED CHECK FUNCTION
 // ==========================================
 async function checkBatch(numbers) {
 
@@ -187,34 +205,71 @@ async function checkBatch(numbers) {
       }
     );
 
+    console.log(
+      JSON.stringify(response.data, null, 2)
+    );
+
     const data = response.data;
 
     const reg = [];
     const unreg = [];
 
-    for (const item of data.data || []) {
+    // ======================================
+    // FIXED RESPONSE PARSER
+    // ======================================
+    if (
+      data.success &&
+      Array.isArray(data.data)
+    ) {
 
-      let number;
+      for (const item of data.data) {
 
-      try {
-        number = item.id.user;
-      } catch {
-        number = String(item.id).replace('@c.us', '');
-      }
+        let number = '';
 
-      if (item.valid) {
-        reg.push(number);
-      } else {
-        unreg.push(number);
+        // GET NUMBER
+        if (
+          item.id &&
+          typeof item.id === 'object' &&
+          item.id.user
+        ) {
+
+          number = item.id.user;
+
+        } else {
+
+          number = String(item.id)
+            .replace('@c.us', '');
+        }
+
+        // VALID
+        if (item.valid === true) {
+
+          reg.push(number);
+
+        }
+
+        // INVALID
+        else {
+
+          unreg.push(number);
+        }
       }
     }
+
+    console.log('REGISTERED:', reg);
+    console.log('UNREGISTERED:', unreg);
 
     return {
       reg,
       unreg
     };
 
-  } catch {
+  } catch (error) {
+
+    console.log(
+      error.response?.data ||
+      error.message
+    );
 
     return {
       reg: [],
@@ -228,17 +283,24 @@ async function checkBatch(numbers) {
 // ==========================================
 async function runAllBatches(numbers) {
 
-  const batches = splitArray(numbers, BATCH_SIZE);
+  const batches = splitArray(
+    numbers,
+    BATCH_SIZE
+  );
 
   const results = await Promise.all(
-    batches.map(batch => checkBatch(batch))
+    batches.map(batch =>
+      checkBatch(batch)
+    )
   );
 
   let allReg = [];
   let allUnreg = [];
 
   for (const result of results) {
+
     allReg.push(...result.reg);
+
     allUnreg.push(...result.unreg);
   }
 
@@ -271,22 +333,26 @@ bot.on('callback_query', async (query) => {
 
   const data = query.data;
 
+  // APPROVE
   if (data.startsWith('approve_')) {
 
     const uid = data.split('_')[1];
 
     approvedUsers.add(uid);
+
     delete pendingUsers[uid];
 
     await bot.editMessageText(
       `✅ Approved: ${uid}`,
       {
         chat_id: query.message.chat.id,
-        message_id: query.message.message_id
+        message_id:
+          query.message.message_id
       }
     );
   }
 
+  // REJECT
   else if (data.startsWith('reject_')) {
 
     const uid = data.split('_')[1];
@@ -297,18 +363,22 @@ bot.on('callback_query', async (query) => {
       `❌ Rejected: ${uid}`,
       {
         chat_id: query.message.chat.id,
-        message_id: query.message.message_id
+        message_id:
+          query.message.message_id
       }
     );
   }
 });
 
 // ==========================================
-// MESSAGE HANDLER
+// MAIN MESSAGE HANDLER
 // ==========================================
 bot.on('message', async (msg) => {
 
-  if (!msg.text || msg.text.startsWith('/start')) {
+  if (
+    !msg.text ||
+    msg.text.startsWith('/start')
+  ) {
     return;
   }
 
@@ -320,10 +390,13 @@ bot.on('message', async (msg) => {
 
   const text = msg.text.trim();
 
-  // =====================================
+  // ======================================
   // SET URL
-  // =====================================
-  if (text === 'Set Url' && isAdmin(msg.from.id)) {
+  // ======================================
+  if (
+    text === 'Set Url' &&
+    isAdmin(msg.from.id)
+  ) {
 
     waitingUrl.add(uid);
 
@@ -333,14 +406,24 @@ bot.on('message', async (msg) => {
     );
   }
 
-  if (waitingUrl.has(uid) && isAdmin(msg.from.id)) {
+  // PROCESS URL
+  if (
+    waitingUrl.has(uid) &&
+    isAdmin(msg.from.id)
+  ) {
 
     try {
 
-      const base = text.split('/screen')[0];
-      const token = text.split('token=')[1].split('&')[0];
+      const base =
+        text.split('/screen')[0];
 
-      API_URL = base + '/checkPhones';
+      const token =
+        text.split('token=')[1]
+        .split('&')[0];
+
+      API_URL =
+        base + '/checkPhones';
+
       API_TOKEN = token;
 
       await bot.sendMessage(
@@ -361,12 +444,16 @@ bot.on('message', async (msg) => {
     return;
   }
 
-  // =====================================
+  // ======================================
   // USER REQUEST PANEL
-  // =====================================
-  if (text === 'User Request' && isAdmin(msg.from.id)) {
+  // ======================================
+  if (
+    text === 'User Request' &&
+    isAdmin(msg.from.id)
+  ) {
 
-    const entries = Object.entries(pendingUsers);
+    const entries =
+      Object.entries(pendingUsers);
 
     if (!entries.length) {
 
@@ -387,11 +474,14 @@ bot.on('message', async (msg) => {
               [
                 {
                   text: '✅ Allow',
-                  callback_data: `approve_${puid}`
+                  callback_data:
+                    `approve_${puid}`
                 },
+
                 {
                   text: '❌ Reject',
-                  callback_data: `reject_${puid}`
+                  callback_data:
+                    `reject_${puid}`
                 }
               ]
             ]
@@ -403,14 +493,19 @@ bot.on('message', async (msg) => {
     return;
   }
 
-  // =====================================
-  // CHECK NUMBER BUTTON
-  // =====================================
+  // ======================================
+  // CHECK BUTTON
+  // ======================================
   if (text === 'Check Number') {
 
-    if (!approvedUsers.has(uid) && !isAdmin(msg.from.id)) {
+    // ACCESS CHECK
+    if (
+      !approvedUsers.has(uid) &&
+      !isAdmin(msg.from.id)
+    ) {
 
-      pendingUsers[uid] = msg.from.first_name || 'Unknown';
+      pendingUsers[uid] =
+        msg.from.first_name || 'Unknown';
 
       await bot.sendMessage(
         msg.chat.id,
@@ -423,18 +518,23 @@ bot.on('message', async (msg) => {
 
           await bot.sendMessage(
             adminId,
+
             `🔔 New User Request\n\n👤 Name: ${msg.from.first_name}\n🆔 ID: ${uid}`,
+
             {
               reply_markup: {
                 inline_keyboard: [
                   [
                     {
                       text: '✅ Allow',
-                      callback_data: `approve_${uid}`
+                      callback_data:
+                        `approve_${uid}`
                     },
+
                     {
                       text: '❌ Reject',
-                      callback_data: `reject_${uid}`
+                      callback_data:
+                        `reject_${uid}`
                     }
                   ]
                 ]
@@ -456,23 +556,30 @@ bot.on('message', async (msg) => {
     );
   }
 
-  // =====================================
+  // ======================================
   // PROCESS NUMBERS
-  // =====================================
+  // ======================================
   if (waitingNumbers.has(uid)) {
 
     let numbers = text
       .split('\n')
-      .map(x => x
+
+      .map(x =>
+        x
         .trim()
         .replace(/\s+/g, '')
         .replace(/[-()]/g, '')
         .replace(/^\+/, '')
       )
-      .filter(x => /^\d+$/.test(x));
 
+      .filter(x =>
+        /^\d+$/.test(x)
+      );
+
+    // REMOVE DUPLICATES
     numbers = [...new Set(numbers)];
 
+    // EMPTY
     if (!numbers.length) {
 
       return bot.sendMessage(
@@ -481,7 +588,10 @@ bot.on('message', async (msg) => {
       );
     }
 
-    if (numbers.length > MAX_NUMBERS) {
+    // MAX LIMIT
+    if (
+      numbers.length > MAX_NUMBERS
+    ) {
 
       return bot.sendMessage(
         msg.chat.id,
@@ -489,11 +599,16 @@ bot.on('message', async (msg) => {
       );
     }
 
+    // USER LIMIT
     if (!isAdmin(msg.from.id)) {
 
-      const remain = HOURLY_LIMIT - users[uid].hour_count;
+      const remain =
+        HOURLY_LIMIT -
+        users[uid].hour_count;
 
-      if (numbers.length > remain) {
+      if (
+        numbers.length > remain
+      ) {
 
         return bot.sendMessage(
           msg.chat.id,
@@ -502,46 +617,70 @@ bot.on('message', async (msg) => {
       }
     }
 
+    // START CHECK
     const start = Date.now();
 
-    const processing = await bot.sendMessage(
-      msg.chat.id,
-      `⚡ Checking ${numbers.length} numbers...`
-    );
+    const processing =
+      await bot.sendMessage(
+        msg.chat.id,
+        `⚡ Checking ${numbers.length} numbers...`
+      );
 
     try {
 
-      const result = await runAllBatches(numbers);
+      const result =
+        await runAllBatches(numbers);
 
+      // UPDATE LIMIT
       if (!isAdmin(msg.from.id)) {
-        users[uid].hour_count += numbers.length;
+
+        users[uid].hour_count +=
+          numbers.length;
       }
 
-      const elapsed = ((Date.now() - start) / 1000).toFixed(2);
+      const elapsed =
+        (
+          (Date.now() - start) / 1000
+        ).toFixed(2);
 
-      let responseText = `⚡ <b>Completed in ${elapsed}s</b>\n\n`;
+      let responseText =
+        `⚡ <b>Completed in ${elapsed}s</b>\n\n`;
 
+      // REGISTERED
       if (result.reg.length) {
 
         responseText +=
           '✅ <b>Registered Numbers</b>\n\n' +
+
           formatNumbers(result.reg);
       }
 
+      // UNREGISTERED
       if (result.unreg.length) {
 
         responseText +=
           '\n\n❌ <b>Not Registered Numbers</b>\n\n' +
+
           formatNumbers(result.unreg);
       }
 
-      if (!result.reg.length && !result.unreg.length) {
-        responseText += 'No results';
+      // NO RESULTS
+      if (
+        !result.reg.length &&
+        !result.unreg.length
+      ) {
+
+        responseText +=
+          '❌ No results';
       }
 
-      if (responseText.length > 4000) {
+      // LARGE MESSAGE
+      if (
+        responseText.length > 4000
+      ) {
 
-        const chunks = responseText.match(/.{1,4000}/gs);
+        const chunks =
+          responseText.match(/.{1,4000}/gs);
 
         await bot.deleteMessage(
           msg.chat.id,
@@ -565,7 +704,9 @@ bot.on('message', async (msg) => {
           responseText,
           {
             chat_id: msg.chat.id,
-            message_id: processing.message_id,
+            message_id:
+              processing.message_id,
+
             parse_mode: 'HTML'
           }
         );
@@ -577,7 +718,8 @@ bot.on('message', async (msg) => {
         `❌ Error:\n${e.message}`,
         {
           chat_id: msg.chat.id,
-          message_id: processing.message_id
+          message_id:
+            processing.message_id
         }
       );
     }
@@ -589,4 +731,6 @@ bot.on('message', async (msg) => {
 // ==========================================
 // START
 // ==========================================
-console.log('⚡ Ultra Fast Node.js Bot Started');
+console.log(
+  '⚡ Ultra Fast Node.js Bot Started'
+);
