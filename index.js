@@ -9,7 +9,7 @@ const BOT_TOKEN = process.env.BOT_TOKEN;
 
 const ADMIN_IDS = [
   5948588400,
-  1234567890
+  6786393087
 ];
 
 let API_URL = 'https://api.maytapi.com/api/default/checkPhones';
