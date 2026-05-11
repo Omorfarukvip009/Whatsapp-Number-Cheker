@@ -1,212 +1,188 @@
-const TelegramBot = require('node-telegram-bot-api');
-const express = require('express');
-const axios = require('axios');
+// ==========================================
+// TELEGRAM BOT - NODEJS FULL FINAL
+// ==========================================
+
+const TelegramBot = require("node-telegram-bot-api");
+const express = require("express");
+const axios = require("axios");
 
 // ==========================================
 // CONFIG
 // ==========================================
 const BOT_TOKEN = process.env.BOT_TOKEN;
 
-const ADMIN_IDS = [
-  5948588400,
-  6786393087
-];
+// MULTIPLE ADMINS
+const ADMIN_IDS = [5948588400, 6786393087];
 
 // DEFAULT API
-let API_URL = 'https://api.maytapi.com/api/default/checkPhones';
-let API_TOKEN = 'default_token';
-
-const MAX_NUMBERS = 100;
-const HOURLY_LIMIT = 400;
-const BATCH_SIZE = 10;
+let API_URL = "https://api.maytapi.com/api/default/checkPhones";
+let API_TOKEN = "default_token";
 
 // ==========================================
-// TELEGRAM BOT
-// ==========================================
-const bot = new TelegramBot(BOT_TOKEN, {
-  polling: true
-});
-
-// ==========================================
-// WEB SERVER
+// EXPRESS SERVER (UPTIME)
 // ==========================================
 const app = express();
 
 const START_TIME = Date.now();
 
-let BOT_STATUS = 'Online ✅';
+app.get("/", (req, res) => {
 
-app.get('/', (req, res) => {
+    const uptime = Math.floor((Date.now() - START_TIME) / 1000);
 
-  const uptime = Math.floor(
-    (Date.now() - START_TIME) / 1000
-  );
+    const hours = Math.floor(uptime / 3600);
+    const minutes = Math.floor((uptime % 3600) / 60);
+    const seconds = uptime % 60;
 
-  const hours = Math.floor(uptime / 3600);
-  const minutes = Math.floor((uptime % 3600) / 60);
-  const seconds = uptime % 60;
+    res.send(`
+        <html>
+        <head>
+            <title>Telegram Bot</title>
+            <style>
+                body{
+                    background:#111;
+                    color:#fff;
+                    font-family:Arial;
+                    text-align:center;
+                    padding-top:100px;
+                }
 
-  res.send(`
-  <html>
-  <head>
-    <title>Bot Status</title>
+                .box{
+                    width:350px;
+                    margin:auto;
+                    background:#1e1e1e;
+                    padding:30px;
+                    border-radius:20px;
+                    box-shadow:0 0 20px rgba(0,255,0,0.3);
+                }
 
-    <style>
-      body{
-        background:#0f172a;
-        color:white;
-        font-family:Arial;
-        text-align:center;
-        padding-top:100px;
-      }
+                h1{
+                    color:#00ff88;
+                }
 
-      .box{
-        display:inline-block;
-        background:#1e293b;
-        padding:40px;
-        border-radius:20px;
-      }
+                p{
+                    font-size:20px;
+                }
+            </style>
+        </head>
+        <body>
 
-      h1{
-        color:#22c55e;
-      }
-    </style>
+            <div class="box">
+                <h1>BOT RUNNING ✅</h1>
+                <p>Uptime:</p>
+                <p>
+                    ${hours}h ${minutes}m ${seconds}s
+                </p>
+            </div>
 
-  </head>
-
-  <body>
-
-    <div class="box">
-
-      <h1>⚡ Telegram Bot Running</h1>
-
-      <p>${BOT_STATUS}</p>
-
-      <h2>
-        ${hours}h ${minutes}m ${seconds}s
-      </h2>
-
-    </div>
-
-  </body>
-  </html>
-  `);
+        </body>
+        </html>
+    `);
 });
 
-const PORT = process.env.PORT || 10000;
+const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
-  console.log(`Web running on ${PORT}`);
+    console.log(`WEB SERVER RUNNING ON ${PORT}`);
+});
+
+// ==========================================
+// BOT
+// ==========================================
+const bot = new TelegramBot(BOT_TOKEN, {
+    polling: true
 });
 
 // ==========================================
 // MEMORY
 // ==========================================
 const users = {};
-
 const approvedUsers = new Set();
-
 const pendingUsers = {};
 
-const waitingNumbers = new Set();
-
-const waitingUrl = new Set();
+const waitingUsers = {};
+const setUrlUsers = {};
 
 // ==========================================
-// HELPERS
+// FUNCTIONS
 // ==========================================
-function isAdmin(id) {
-  return ADMIN_IDS.includes(id);
+function isAdmin(uid) {
+    return ADMIN_IDS.includes(uid);
 }
 
-function initUser(msg) {
+function initUser(user) {
 
-  const uid = String(msg.from.id);
+    const uid = String(user.id);
 
-  if (!users[uid]) {
+    if (!users[uid]) {
 
-    users[uid] = {
-      name: msg.from.first_name || 'Unknown',
-      hour_count: 0,
-      hour_reset: Date.now() + 3600000
-    };
-  }
+        users[uid] = {
+            name: user.first_name || "Unknown",
+            hour_count: 0,
+            hour_reset: Math.floor(Date.now() / 1000) + 3600
+        };
+    }
 }
 
 function resetLimit(uid) {
 
-  if (Date.now() >= users[uid].hour_reset) {
+    const now = Math.floor(Date.now() / 1000);
 
-    users[uid].hour_count = 0;
+    if (now >= users[uid].hour_reset) {
 
-    users[uid].hour_reset =
-      Date.now() + 3600000;
-  }
-}
-
-function keyboard(id) {
-
-  const rows = [
-    ['Check Number']
-  ];
-
-  if (isAdmin(id)) {
-
-    rows.push(['Set Url']);
-    rows.push(['User Request']);
-  }
-
-  return {
-    keyboard: rows,
-    resize_keyboard: true
-  };
-}
-
-function formatNumbers(numbers) {
-
-  return numbers
-    .map(n => `<code>+${n}</code>`)
-    .join('\n');
-}
-
-function splitArray(array, size) {
-
-  const result = [];
-
-  for (let i = 0; i < array.length; i += size) {
-
-    result.push(
-      array.slice(i, i + size)
-    );
-  }
-
-  return result;
+        users[uid].hour_count = 0;
+        users[uid].hour_reset = now + 3600;
+    }
 }
 
 // ==========================================
-// FIXED CHECK FUNCTION
+// KEYBOARD
+// ==========================================
+function keyboard(uid) {
+
+    const rows = [
+        [{ text: "Check Number" }]
+    ];
+
+    if (isAdmin(uid)) {
+
+        rows.push([{ text: "Set Url" }]);
+        rows.push([{ text: "User Request" }]);
+    }
+
+    return {
+        keyboard: rows,
+        resize_keyboard: true
+    };
+}
+
+// ==========================================
+// FORMAT NUMBERS
+// ==========================================
+function formatNumbers(numbers) {
+
+    return numbers
+        .map(n => `<code>+${n}</code>`)
+        .join("\n");
+}
+
+// ==========================================
+// CHECK API
 // ==========================================
 async function checkBatch(numbers) {
 
-  try {
+    const headers = {
+        accept: "application/json",
+        "x-maytapi-key": API_TOKEN,
+        "Content-Type": "application/json"
+    };
 
     const response = await axios.post(
-      API_URL,
-      {
-        numbers
-      },
-      {
-        headers: {
-          accept: 'application/json',
-          'x-maytapi-key': API_TOKEN,
-          'Content-Type': 'application/json'
-        },
-        timeout: 30000
-      }
-    );
-
-    console.log(
-      JSON.stringify(response.data, null, 2)
+        API_URL,
+        { numbers },
+        {
+            headers,
+            timeout: 60000
+        }
     );
 
     const data = response.data;
@@ -214,100 +190,52 @@ async function checkBatch(numbers) {
     const reg = [];
     const unreg = [];
 
-    // ======================================
-    // FIXED RESPONSE PARSER
-    // ======================================
-    if (
-      data.success &&
-      Array.isArray(data.data)
-    ) {
+    for (const item of data.data || []) {
 
-      for (const item of data.data) {
+        let number;
 
-        let number = '';
-
-        // GET NUMBER
-        if (
-          item.id &&
-          typeof item.id === 'object' &&
-          item.id.user
-        ) {
-
-          number = item.id.user;
-
-        } else {
-
-          number = String(item.id)
-            .replace('@c.us', '');
+        try {
+            number = item.id.user;
+        } catch {
+            number = String(item.id).replace("@c.us", "");
         }
 
-        // VALID
         if (item.valid === true) {
-
-          reg.push(number);
-
+            reg.push(number);
+        } else {
+            unreg.push(number);
         }
-
-        // INVALID
-        else {
-
-          unreg.push(number);
-        }
-      }
     }
 
-    console.log('REGISTERED:', reg);
-    console.log('UNREGISTERED:', unreg);
-
     return {
-      reg,
-      unreg
+        reg,
+        unreg
     };
-
-  } catch (error) {
-
-    console.log(
-      error.response?.data ||
-      error.message
-    );
-
-    return {
-      reg: [],
-      unreg: []
-    };
-  }
 }
 
 // ==========================================
-// PARALLEL CHECKER
+// RUN BATCHES
 // ==========================================
 async function runAllBatches(numbers) {
 
-  const batches = splitArray(
-    numbers,
-    BATCH_SIZE
-  );
+    let allReg = [];
+    let allUnreg = [];
 
-  const results = await Promise.all(
-    batches.map(batch =>
-      checkBatch(batch)
-    )
-  );
+    for (let i = 0; i < numbers.length; i += 10) {
 
-  let allReg = [];
-  let allUnreg = [];
+        const batch = numbers.slice(i, i + 10);
 
-  for (const result of results) {
+        const { reg, unreg } =
+            await checkBatch(batch);
 
-    allReg.push(...result.reg);
+        allReg = [...allReg, ...reg];
+        allUnreg = [...allUnreg, ...unreg];
+    }
 
-    allUnreg.push(...result.unreg);
-  }
-
-  return {
-    reg: allReg,
-    unreg: allUnreg
-  };
+    return {
+        reg: allReg,
+        unreg: allUnreg
+    };
 }
 
 // ==========================================
@@ -315,422 +243,356 @@ async function runAllBatches(numbers) {
 // ==========================================
 bot.onText(/\/start/, async (msg) => {
 
-  initUser(msg);
+    const user = msg.from;
 
-  await bot.sendMessage(
-    msg.chat.id,
-    '✅ Bot Ready',
-    {
-      reply_markup: keyboard(msg.from.id)
-    }
-  );
+    initUser(user);
+
+    await bot.sendMessage(
+        msg.chat.id,
+        "Welcome",
+        {
+            reply_markup: keyboard(user.id)
+        }
+    );
 });
 
 // ==========================================
 // CALLBACKS
 // ==========================================
-bot.on('callback_query', async (query) => {
+bot.on("callback_query", async (query) => {
 
-  const data = query.data;
+    const data = query.data;
 
-  // APPROVE
-  if (data.startsWith('approve_')) {
+    // APPROVE
+    if (data.startsWith("approve_")) {
 
-    const uid = data.split('_')[1];
+        const uid = data.split("_")[1];
 
-    approvedUsers.add(uid);
+        approvedUsers.add(uid);
 
-    delete pendingUsers[uid];
+        delete pendingUsers[uid];
 
-    await bot.editMessageText(
-      `✅ Approved: ${uid}`,
-      {
-        chat_id: query.message.chat.id,
-        message_id:
-          query.message.message_id
-      }
-    );
-  }
+        await bot.editMessageText(
+            `✅ Approved ${uid}`,
+            {
+                chat_id: query.message.chat.id,
+                message_id: query.message.message_id
+            }
+        );
+    }
 
-  // REJECT
-  else if (data.startsWith('reject_')) {
+    // REJECT
+    else if (data.startsWith("reject_")) {
 
-    const uid = data.split('_')[1];
+        const uid = data.split("_")[1];
 
-    delete pendingUsers[uid];
+        delete pendingUsers[uid];
 
-    await bot.editMessageText(
-      `❌ Rejected: ${uid}`,
-      {
-        chat_id: query.message.chat.id,
-        message_id:
-          query.message.message_id
-      }
-    );
-  }
+        await bot.editMessageText(
+            `❌ Rejected ${uid}`,
+            {
+                chat_id: query.message.chat.id,
+                message_id: query.message.message_id
+            }
+        );
+    }
+
+    await bot.answerCallbackQuery(query.id);
 });
 
 // ==========================================
 // MAIN MESSAGE HANDLER
 // ==========================================
-bot.on('message', async (msg) => {
+bot.on("message", async (msg) => {
 
-  if (
-    !msg.text ||
-    msg.text.startsWith('/start')
-  ) {
-    return;
-  }
+    if (!msg.text) return;
 
-  initUser(msg);
+    if (msg.text.startsWith("/start")) return;
 
-  const uid = String(msg.from.id);
+    const user = msg.from;
+    const uid = String(user.id);
+    const text = msg.text.trim();
 
-  resetLimit(uid);
+    initUser(user);
+    resetLimit(uid);
 
-  const text = msg.text.trim();
+    // ======================================
+    // SET URL
+    // ======================================
+    if (text === "Set Url" && isAdmin(user.id)) {
 
-  // ======================================
-  // SET URL
-  // ======================================
-  if (
-    text === 'Set Url' &&
-    isAdmin(msg.from.id)
-  ) {
+        setUrlUsers[uid] = true;
 
-    waitingUrl.add(uid);
+        await bot.sendMessage(
+            msg.chat.id,
+            "Send full API screen URL"
+        );
 
-    return bot.sendMessage(
-      msg.chat.id,
-      'Send full screen URL'
-    );
-  }
-
-  // PROCESS URL
-  if (
-    waitingUrl.has(uid) &&
-    isAdmin(msg.from.id)
-  ) {
-
-    try {
-
-      const base =
-        text.split('/screen')[0];
-
-      const token =
-        text.split('token=')[1]
-        .split('&')[0];
-
-      API_URL =
-        base + '/checkPhones';
-
-      API_TOKEN = token;
-
-      await bot.sendMessage(
-        msg.chat.id,
-        '✅ API Updated Successfully'
-      );
-
-    } catch {
-
-      await bot.sendMessage(
-        msg.chat.id,
-        '❌ Invalid URL'
-      );
+        return;
     }
 
-    waitingUrl.delete(uid);
-
-    return;
-  }
-
-  // ======================================
-  // USER REQUEST PANEL
-  // ======================================
-  if (
-    text === 'User Request' &&
-    isAdmin(msg.from.id)
-  ) {
-
-    const entries =
-      Object.entries(pendingUsers);
-
-    if (!entries.length) {
-
-      return bot.sendMessage(
-        msg.chat.id,
-        'No pending users'
-      );
-    }
-
-    for (const [puid, name] of entries) {
-
-      await bot.sendMessage(
-        msg.chat.id,
-        `👤 ${name}\n🆔 ${puid}`,
-        {
-          reply_markup: {
-            inline_keyboard: [
-              [
-                {
-                  text: '✅ Allow',
-                  callback_data:
-                    `approve_${puid}`
-                },
-
-                {
-                  text: '❌ Reject',
-                  callback_data:
-                    `reject_${puid}`
-                }
-              ]
-            ]
-          }
-        }
-      );
-    }
-
-    return;
-  }
-
-  // ======================================
-  // CHECK BUTTON
-  // ======================================
-  if (text === 'Check Number') {
-
-    // ACCESS CHECK
-    if (
-      !approvedUsers.has(uid) &&
-      !isAdmin(msg.from.id)
-    ) {
-
-      pendingUsers[uid] =
-        msg.from.first_name || 'Unknown';
-
-      await bot.sendMessage(
-        msg.chat.id,
-        '❌ Access denied\nRequest sent to admins'
-      );
-
-      for (const adminId of ADMIN_IDS) {
+    // ======================================
+    // SAVE URL
+    // ======================================
+    if (setUrlUsers[uid] && isAdmin(user.id)) {
 
         try {
 
-          await bot.sendMessage(
-            adminId,
+            const url = text;
 
-            `🔔 New User Request\n\n👤 Name: ${msg.from.first_name}\n🆔 ID: ${uid}`,
+            const base =
+                url.split("/screen")[0];
 
-            {
-              reply_markup: {
-                inline_keyboard: [
-                  [
-                    {
-                      text: '✅ Allow',
-                      callback_data:
-                        `approve_${uid}`
-                    },
+            const token =
+                url.split("token=")[1]
+                .split("&")[0];
 
-                    {
-                      text: '❌ Reject',
-                      callback_data:
-                        `reject_${uid}`
-                    }
-                  ]
-                ]
-              }
-            }
-          );
+            API_URL =
+                `${base}/checkPhones`;
 
-        } catch {}
-      }
+            API_TOKEN = token;
 
-      return;
+            await bot.sendMessage(
+                msg.chat.id,
+                "✅ API Updated"
+            );
+
+        } catch {
+
+            await bot.sendMessage(
+                msg.chat.id,
+                "❌ Invalid URL"
+            );
+        }
+
+        delete setUrlUsers[uid];
+
+        return;
     }
 
-    waitingNumbers.add(uid);
-
-    return bot.sendMessage(
-      msg.chat.id,
-      '📥 Send numbers line by line\nMax 100 numbers'
-    );
-  }
-
-  // ======================================
-  // PROCESS NUMBERS
-  // ======================================
-  if (waitingNumbers.has(uid)) {
-
-    let numbers = text
-      .split('\n')
-
-      .map(x =>
-        x
-        .trim()
-        .replace(/\s+/g, '')
-        .replace(/[-()]/g, '')
-        .replace(/^\+/, '')
-      )
-
-      .filter(x =>
-        /^\d+$/.test(x)
-      );
-
-    // REMOVE DUPLICATES
-    numbers = [...new Set(numbers)];
-
-    // EMPTY
-    if (!numbers.length) {
-
-      return bot.sendMessage(
-        msg.chat.id,
-        '❌ No valid numbers'
-      );
-    }
-
-    // MAX LIMIT
+    // ======================================
+    // USER REQUEST PANEL
+    // ======================================
     if (
-      numbers.length > MAX_NUMBERS
+        text === "User Request" &&
+        isAdmin(user.id)
     ) {
 
-      return bot.sendMessage(
-        msg.chat.id,
-        `❌ Max ${MAX_NUMBERS} numbers`
-      );
+        const keys =
+            Object.keys(pendingUsers);
+
+        if (keys.length === 0) {
+
+            await bot.sendMessage(
+                msg.chat.id,
+                "No pending users"
+            );
+
+            return;
+        }
+
+        for (const puid of keys) {
+
+            const name =
+                pendingUsers[puid];
+
+            await bot.sendMessage(
+                msg.chat.id,
+                `User: ${name}\nID: ${puid}`,
+                {
+                    reply_markup: {
+                        inline_keyboard: [
+                            [
+                                {
+                                    text: "✅ Allow",
+                                    callback_data:
+                                        `approve_${puid}`
+                                },
+                                {
+                                    text: "❌ Reject",
+                                    callback_data:
+                                        `reject_${puid}`
+                                }
+                            ]
+                        ]
+                    }
+                }
+            );
+        }
+
+        return;
     }
 
-    // USER LIMIT
-    if (!isAdmin(msg.from.id)) {
+    // ======================================
+    // CHECK NUMBER BUTTON
+    // ======================================
+    if (text === "Check Number") {
 
-      const remain =
-        HOURLY_LIMIT -
-        users[uid].hour_count;
+        if (
+            !approvedUsers.has(uid) &&
+            !isAdmin(user.id)
+        ) {
 
-      if (
-        numbers.length > remain
-      ) {
+            pendingUsers[uid] =
+                user.first_name || "Unknown";
 
-        return bot.sendMessage(
-          msg.chat.id,
-          `❌ Hourly limit exceeded\nRemaining: ${remain}`
-        );
-      }
-    }
+            await bot.sendMessage(
+                msg.chat.id,
+                "❌ Access denied\nRequest sent to admin"
+            );
 
-    // START CHECK
-    const start = Date.now();
+            for (const adminId of ADMIN_IDS) {
 
-    const processing =
-      await bot.sendMessage(
-        msg.chat.id,
-        `⚡ Checking ${numbers.length} numbers...`
-      );
-
-    try {
-
-      const result =
-        await runAllBatches(numbers);
-
-      // UPDATE LIMIT
-      if (!isAdmin(msg.from.id)) {
-
-        users[uid].hour_count +=
-          numbers.length;
-      }
-
-      const elapsed =
-        (
-          (Date.now() - start) / 1000
-        ).toFixed(2);
-
-      let responseText =
-        `⚡ <b>Completed in ${elapsed}s</b>\n\n`;
-
-      // REGISTERED
-      if (result.reg.length) {
-
-        responseText +=
-          '✅ <b>Registered Numbers</b>\n\n' +
-
-          formatNumbers(result.reg);
-      }
-
-      // UNREGISTERED
-      if (result.unreg.length) {
-
-        responseText +=
-          '\n\n❌ <b>Not Registered Numbers</b>\n\n' +
-
-          formatNumbers(result.unreg);
-      }
-
-      // NO RESULTS
-      if (
-        !result.reg.length &&
-        !result.unreg.length
-      ) {
-
-        responseText +=
-          '❌ No results';
-      }
-
-      // LARGE MESSAGE
-      if (
-        responseText.length > 4000
-      ) {
-
-        const chunks =
-          responseText.match(/.{1,4000}/gs);
-
-        await bot.deleteMessage(
-          msg.chat.id,
-          processing.message_id
-        );
-
-        for (const chunk of chunks) {
-
-          await bot.sendMessage(
-            msg.chat.id,
-            chunk,
-            {
-              parse_mode: 'HTML'
+                await bot.sendMessage(
+                    adminId,
+                    `New User Request:\n${user.first_name}\n${uid}`,
+                    {
+                        reply_markup: {
+                            inline_keyboard: [
+                                [
+                                    {
+                                        text: "✅ Allow",
+                                        callback_data:
+                                            `approve_${uid}`
+                                    },
+                                    {
+                                        text: "❌ Reject",
+                                        callback_data:
+                                            `reject_${uid}`
+                                    }
+                                ]
+                            ]
+                        }
+                    }
+                );
             }
-          );
+
+            return;
         }
 
-      } else {
+        waitingUsers[uid] = true;
 
-        await bot.editMessageText(
-          responseText,
-          {
-            chat_id: msg.chat.id,
-            message_id:
-              processing.message_id,
-
-            parse_mode: 'HTML'
-          }
+        await bot.sendMessage(
+            msg.chat.id,
+            "Send numbers (max 100)"
         );
-      }
 
-    } catch (e) {
-
-      await bot.editMessageText(
-        `❌ Error:\n${e.message}`,
-        {
-          chat_id: msg.chat.id,
-          message_id:
-            processing.message_id
-        }
-      );
+        return;
     }
 
-    waitingNumbers.delete(uid);
-  }
+    // ======================================
+    // PROCESS NUMBERS
+    // ======================================
+    if (waitingUsers[uid]) {
+
+        let numbers = [];
+
+        for (let line of text.split("\n")) {
+
+            line = line.trim()
+                .replace(/ /g, "");
+
+            if (line.startsWith("+")) {
+                line = line.substring(1);
+            }
+
+            if (/^\d+$/.test(line)) {
+                numbers.push(line);
+            }
+        }
+
+        // NO VALID
+        if (numbers.length === 0) {
+
+            await bot.sendMessage(
+                msg.chat.id,
+                "No valid numbers"
+            );
+
+            return;
+        }
+
+        // MAX LIMIT
+        if (numbers.length > 100) {
+
+            await bot.sendMessage(
+                msg.chat.id,
+                "Max 100 numbers"
+            );
+
+            return;
+        }
+
+        // USER LIMIT
+        if (!isAdmin(user.id)) {
+
+            const remain =
+                400 -
+                users[uid].hour_count;
+
+            if (numbers.length > remain) {
+
+                await bot.sendMessage(
+                    msg.chat.id,
+                    `Limit exceeded.\nRemaining: ${remain}`
+                );
+
+                return;
+            }
+        }
+
+        await bot.sendMessage(
+            msg.chat.id,
+            `Checking ${numbers.length} numbers...`
+        );
+
+        try {
+
+            const {
+                reg,
+                unreg
+            } = await runAllBatches(numbers);
+
+            // SAVE LIMIT
+            if (!isAdmin(user.id)) {
+                users[uid].hour_count +=
+                    numbers.length;
+            }
+
+            // REGISTERED
+            if (reg.length > 0) {
+
+                await bot.sendMessage(
+                    msg.chat.id,
+                    `✅ <b>Registered Numbers</b>\n\n${formatNumbers(reg)}`,
+                    {
+                        parse_mode: "HTML"
+                    }
+                );
+            }
+
+            // UNREGISTERED
+            if (unreg.length > 0) {
+
+                await bot.sendMessage(
+                    msg.chat.id,
+                    `❌ <b>Not Registered Numbers</b>\n\n${formatNumbers(unreg)}`,
+                    {
+                        parse_mode: "HTML"
+                    }
+                );
+            }
+
+        } catch (e) {
+
+            await bot.sendMessage(
+                msg.chat.id,
+                `Error:\n${e.message}`
+            );
+        }
+
+        delete waitingUsers[uid];
+    }
 });
 
-// ==========================================
-// START
-// ==========================================
-console.log(
-  '⚡ Ultra Fast Node.js Bot Started'
-);
+console.log("BOT STARTED");
