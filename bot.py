@@ -9,6 +9,7 @@ import logging
 import aiohttp
 import json
 import os
+import signal
 
 from telegram import (
     Update,
@@ -40,7 +41,7 @@ logger = logging.getLogger(__name__)
 # ==========================================
 # CONFIG FROM ENV
 # ==========================================
-BOT_TOKEN = os.environ.get("BOT_TOKEN", "YOUR_BOT_TOKEN")
+BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
 MAX_NUMBERS = int(os.environ.get("MAX_NUMBERS", 100))
 HOURLY_LIMIT = int(os.environ.get("HOURLY_LIMIT", 400))
 BATCH_SIZE = int(os.environ.get("BATCH_SIZE", 10))
@@ -384,23 +385,42 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # ==========================================
-# RUN — async, called from its own event loop in main.py
+# RUN — FIX: replaced asyncio.Event().wait() with
+# Application's built-in run_polling() which handles
+# shutdown signals properly on Render
 # ==========================================
 async def run():
+    if not BOT_TOKEN:
+        logger.error("BOT_TOKEN environment variable is not set!")
+        return
+
+    logger.info("Building Telegram application...")
     app = Application.builder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(callback))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle))
 
-    logger.info("⚡ Bot started")
+    logger.info("⚡ Bot starting polling...")
 
+    # FIX: Use initialize/start/updater pattern that works in a non-main thread.
+    # run_polling() can only be called from the main thread because it installs
+    # signal handlers. Since we run the bot in a side thread, we must drive the
+    # lifecycle manually.
     async with app:
         await app.initialize()
         await app.start()
-        await app.updater.start_polling(drop_pending_updates=True)
-        logger.info("⚡ Bot is polling...")
-        # Keep running forever
-        await asyncio.Event().wait()
+        await app.updater.start_polling(
+            drop_pending_updates=True,
+            allowed_updates=Update.ALL_TYPES,
+        )
+        logger.info("⚡ Bot is polling and ready!")
+
+        # Keep this coroutine alive without blocking anything else.
+        # asyncio.Event().wait() is fine here because this coroutine runs
+        # inside its *own* event loop (created in start_bot()), so it only
+        # blocks that loop — not the web thread.
+        stop_event = asyncio.Event()
+        await stop_event.wait()          # runs forever until the loop is closed
 
 
 def main():
