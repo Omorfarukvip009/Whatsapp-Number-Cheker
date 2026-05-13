@@ -46,7 +46,7 @@ app.use("/admin", auth, adminRoutes);
 
 // HOME
 app.get("/", (req,res)=>{
-  res.send("Bot Running ✔");
+  res.render("home");
 });
 
 const PORT = process.env.PORT || 3000;
