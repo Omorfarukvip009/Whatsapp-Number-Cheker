@@ -1,9 +1,7 @@
 services:
   - type: web
     name: telegram-checker-bot
-    runtime: node
+    env: node
+    plan: free
     buildCommand: npm install
     startCommand: npm start
-    envVars:
-      - key: BOT_TOKEN
-        sync: false
