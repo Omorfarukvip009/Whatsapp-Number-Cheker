@@ -5,315 +5,466 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Admin Dashboard — WA Checker</title>
   <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
     :root {
-      --green:#25D366; --green-dark:#128C7E; --green-deep:#075E54;
-      --bg:#0a0f0d; --card:#111a16; --card2:#162219;
-      --border:rgba(37,211,102,.18); --text:#e8f5e9; --muted:#7ab892;
-      --red:#ff5555; --yellow:#f0c040;
+      --g1: #25D366; --g2: #128C7E; --g3: #075E54;
+      --bg: #050a07; --s1: #0d1710; --s2: #0f1f13; --s3: #091309;
+      --border: rgba(37,211,102,.14); --border2: rgba(37,211,102,.07);
+      --text: #e8f5e9; --muted: #6fa87e; --dim: #3d6b4a;
+      --red: #f05555; --yellow: #f0c040; --blue: #4fa8f0;
+      --sidebar: 240px;
     }
-    body { font-family:'Segoe UI',system-ui,sans-serif; background:var(--bg); color:var(--text); min-height:100vh; }
 
-    /* TOPBAR */
+    html, body { height: 100%; }
+    body {
+      font-family: 'Inter', 'Segoe UI', sans-serif;
+      background: var(--bg); color: var(--text);
+      display: flex; min-height: 100vh; overflow-x: hidden;
+    }
+
+    /* ── SIDEBAR ── */
+    .sidebar {
+      width: var(--sidebar); flex-shrink: 0;
+      background: var(--s3); border-right: 1px solid var(--border2);
+      display: flex; flex-direction: column;
+      position: fixed; top: 0; left: 0; bottom: 0; z-index: 50;
+    }
+    .sb-brand {
+      padding: 24px 20px 20px;
+      border-bottom: 1px solid var(--border2);
+      display: flex; align-items: center; gap: 10px;
+    }
+    .sb-logo {
+      width: 38px; height: 38px;
+      background: linear-gradient(135deg, var(--g2), var(--g1));
+      border-radius: 11px; display: flex; align-items: center; justify-content: center;
+      font-size: 18px; flex-shrink: 0; box-shadow: 0 0 16px rgba(37,211,102,.25);
+    }
+    .sb-title { font-size: .9rem; font-weight: 700; }
+    .sb-sub   { font-size: .68rem; color: var(--muted); }
+
+    .sb-nav { flex: 1; padding: 20px 12px; display: flex; flex-direction: column; gap: 4px; }
+    .sb-label {
+      font-size: .65rem; font-weight: 700; color: var(--dim);
+      text-transform: uppercase; letter-spacing: .8px;
+      padding: 0 8px; margin: 12px 0 6px;
+    }
+    .sb-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 9px 12px; border-radius: 10px;
+      font-size: .84rem; font-weight: 500; color: var(--muted);
+      text-decoration: none; cursor: pointer;
+      transition: all .18s; border: 1px solid transparent;
+    }
+    .sb-item:hover, .sb-item.active {
+      background: rgba(37,211,102,.08); color: var(--text);
+      border-color: rgba(37,211,102,.15);
+    }
+    .sb-item.active { color: var(--g1); }
+    .sb-icon { font-size: 1rem; width: 20px; text-align: center; }
+
+    .sb-footer {
+      padding: 16px 12px; border-top: 1px solid var(--border2);
+    }
+    .sb-logout {
+      display: flex; align-items: center; gap: 10px;
+      padding: 9px 12px; border-radius: 10px;
+      font-size: .84rem; font-weight: 500; color: var(--red);
+      text-decoration: none; transition: all .18s;
+      border: 1px solid transparent;
+    }
+    .sb-logout:hover { background: rgba(240,85,85,.08); border-color: rgba(240,85,85,.2); }
+
+    /* ── MAIN ── */
+    .main {
+      margin-left: var(--sidebar); flex: 1;
+      display: flex; flex-direction: column; min-height: 100vh;
+    }
+
+    /* ── TOPBAR ── */
     .topbar {
-      background:var(--card); border-bottom:1px solid var(--border);
-      padding:0 32px; height:64px; display:flex; align-items:center; justify-content:space-between;
-      position:sticky; top:0; z-index:100;
+      height: 62px; padding: 0 32px;
+      border-bottom: 1px solid var(--border2);
+      display: flex; align-items: center; justify-content: space-between;
+      background: rgba(5,10,7,.7); backdrop-filter: blur(12px);
+      position: sticky; top: 0; z-index: 40;
     }
-    .topbar-left { display:flex; align-items:center; gap:12px; }
-    .topbar-icon {
-      width:38px; height:38px; background:linear-gradient(135deg,var(--green-dark),var(--green));
-      border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:18px;
+    .topbar-title { font-size: 1rem; font-weight: 700; }
+    .topbar-crumb { font-size: .75rem; color: var(--muted); margin-top: 2px; }
+    .live-badge {
+      display: flex; align-items: center; gap: 7px;
+      background: rgba(37,211,102,.08); border: 1px solid rgba(37,211,102,.2);
+      border-radius: 100px; padding: 6px 14px;
+      font-size: .75rem; font-weight: 600; color: var(--g1);
     }
-    .topbar-title { font-size:1.05rem; font-weight:700; }
-    .topbar-sub   { font-size:.75rem; color:var(--muted); }
-    .topbar-right { display:flex; align-items:center; gap:12px; }
-    .badge-live {
-      display:flex; align-items:center; gap:6px; background:rgba(37,211,102,.1);
-      border:1px solid rgba(37,211,102,.25); border-radius:100px;
-      padding:5px 14px; font-size:.78rem; font-weight:600; color:var(--green);
-    }
-    .dot { width:7px; height:7px; background:var(--green); border-radius:50%; animation:blink 1.4s ease-in-out infinite; }
-    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.2} }
-    .btn-logout {
-      padding:7px 16px; background:rgba(255,85,85,.12); border:1px solid rgba(255,85,85,.25);
-      border-radius:8px; color:var(--red); font-size:.82rem; font-weight:600;
-      text-decoration:none; transition:all .2s;
-    }
-    .btn-logout:hover { background:rgba(255,85,85,.2); }
+    .dot { width: 7px; height: 7px; background: var(--g1); border-radius: 50%; animation: blink 1.6s ease-in-out infinite; }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.1} }
 
-    /* LAYOUT */
-    .container { max-width:1100px; margin:0 auto; padding:32px 24px; }
+    /* ── CONTENT ── */
+    .content { padding: 32px; flex: 1; }
 
-    /* STATS GRID */
-    .stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:16px; margin-bottom:32px; }
-    .stat-card {
-      background:var(--card); border:1px solid var(--border); border-radius:16px;
-      padding:20px 24px; display:flex; flex-direction:column; gap:6px;
+    /* ── STATS GRID ── */
+    .stats-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      gap: 14px; margin-bottom: 32px;
     }
-    .stat-label { font-size:.75rem; color:var(--muted); letter-spacing:.4px; text-transform:uppercase; }
-    .stat-val { font-size:1.9rem; font-weight:700; color:var(--green); }
-    .stat-icon { font-size:1.4rem; margin-bottom:4px; }
+    .stat {
+      background: var(--s1); border: 1px solid var(--border2);
+      border-radius: 16px; padding: 20px 22px;
+      transition: border-color .2s, transform .2s;
+    }
+    .stat:hover { border-color: var(--border); transform: translateY(-2px); }
+    .stat-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+    .stat-icon {
+      width: 38px; height: 38px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center; font-size: 1.1rem;
+    }
+    .ic-green  { background: rgba(37,211,102,.12); }
+    .ic-yellow { background: rgba(240,192,64,.12); }
+    .ic-red    { background: rgba(240,85,85,.12); }
+    .ic-blue   { background: rgba(79,168,240,.12); }
+    .stat-trend { font-size: .7rem; color: var(--muted); }
+    .stat-val { font-size: 2rem; font-weight: 800; letter-spacing: -1px; color: var(--text); }
+    .stat-lbl { font-size: .75rem; color: var(--muted); margin-top: 3px; }
 
-    /* SECTION HEADER */
-    .section { margin-bottom:28px; }
-    .section-title { font-size:1rem; font-weight:700; color:var(--text); margin-bottom:16px; display:flex; align-items:center; gap:8px; }
-    .section-title span { font-size:1.1rem; }
+    /* ── CARD ── */
+    .card {
+      background: var(--s1); border: 1px solid var(--border2);
+      border-radius: 18px; overflow: hidden; margin-bottom: 24px;
+    }
+    .card-head {
+      padding: 18px 24px; border-bottom: 1px solid var(--border2);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .card-title { font-size: .9rem; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+    .card-count {
+      font-size: .72rem; background: rgba(37,211,102,.1);
+      border: 1px solid rgba(37,211,102,.2); color: var(--g1);
+      border-radius: 100px; padding: 3px 10px; font-weight: 600;
+    }
 
-    /* API CONFIG CARD */
-    .config-card {
-      background:var(--card); border:1px solid var(--border); border-radius:16px; padding:24px;
+    /* ── CONFIG FORM ── */
+    .config-body { padding: 24px; }
+    .config-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .form-group { display: flex; flex-direction: column; gap: 7px; }
+    .form-label { font-size: .73rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+    .form-input {
+      padding: 11px 14px; background: var(--s2); border: 1px solid var(--border);
+      border-radius: 10px; color: var(--text); font-size: .88rem;
+      outline: none; transition: border-color .2s, box-shadow .2s; font-family: inherit;
     }
-    .config-form { display:grid; grid-template-columns:1fr 1fr auto; gap:12px; align-items:end; }
-    .form-group { display:flex; flex-direction:column; gap:8px; }
-    label.lbl { font-size:.78rem; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:.4px; }
-    input.inp {
-      padding:11px 14px; background:var(--card2); border:1px solid var(--border);
-      border-radius:10px; color:var(--text); font-size:.9rem; outline:none; transition:border-color .2s,box-shadow .2s;
+    .form-input::placeholder { color: rgba(111,168,126,.3); }
+    .form-input:focus { border-color: var(--g2); box-shadow: 0 0 0 3px rgba(37,211,102,.1); }
+    .config-footer {
+      padding: 16px 24px; border-top: 1px solid var(--border2);
+      display: flex; justify-content: flex-end;
     }
-    input.inp::placeholder { color:rgba(122,184,146,.35); }
-    input.inp:focus { border-color:var(--green-dark); box-shadow:0 0 0 3px rgba(37,211,102,.1); }
     .btn-save {
-      padding:11px 24px; background:linear-gradient(135deg,var(--green-deep),var(--green-dark));
-      border:none; border-radius:10px; color:#fff; font-weight:600; font-size:.9rem;
-      cursor:pointer; white-space:nowrap; transition:all .2s; box-shadow:0 4px 14px rgba(37,211,102,.2);
+      padding: 10px 26px;
+      background: linear-gradient(135deg, var(--g3), var(--g2));
+      border: none; border-radius: 10px; color: #fff;
+      font-size: .88rem; font-weight: 700; cursor: pointer;
+      transition: all .2s; box-shadow: 0 4px 14px rgba(37,211,102,.22);
     }
-    .btn-save:hover { transform:translateY(-1px); box-shadow:0 6px 20px rgba(37,211,102,.3); }
+    .btn-save:hover { transform: translateY(-2px); box-shadow: 0 6px 22px rgba(37,211,102,.35); }
 
-    /* USERS TABLE */
-    .table-wrap {
-      background:var(--card); border:1px solid var(--border); border-radius:16px; overflow:hidden;
-    }
-    table { width:100%; border-collapse:collapse; }
-    thead { background:var(--card2); }
+    /* ── TABLE ── */
+    .table-scroll { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; min-width: 580px; }
+    thead { background: var(--s2); }
     th {
-      padding:13px 18px; font-size:.75rem; font-weight:600; color:var(--muted);
-      text-transform:uppercase; letter-spacing:.5px; text-align:left;
+      padding: 12px 18px; font-size: .7rem; font-weight: 700;
+      color: var(--dim); text-transform: uppercase; letter-spacing: .6px; text-align: left;
     }
-    td { padding:14px 18px; font-size:.88rem; border-top:1px solid var(--border); vertical-align:middle; }
-    tr:hover td { background:rgba(37,211,102,.03); }
+    td { padding: 14px 18px; font-size: .85rem; border-top: 1px solid var(--border2); vertical-align: middle; }
+    tbody tr { transition: background .15s; }
+    tbody tr:hover td { background: rgba(37,211,102,.03); }
 
-    .user-cell { display:flex; align-items:center; gap:10px; }
+    /* rank badge */
+    .rank { font-size: .8rem; font-weight: 800; color: var(--dim); }
+    .rank-1 { color: #f0c040; } .rank-2 { color: #b0c0cc; } .rank-3 { color: #cd7f32; }
+
+    /* user cell */
+    .user-cell { display: flex; align-items: center; gap: 11px; }
     .avatar {
-      width:34px; height:34px; background:linear-gradient(135deg,var(--green-deep),var(--green-dark));
-      border-radius:50%; display:flex; align-items:center; justify-content:center;
-      font-size:.85rem; font-weight:700; flex-shrink:0;
+      width: 36px; height: 36px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--g3), var(--g2));
+      display: flex; align-items: center; justify-content: center;
+      font-size: .85rem; font-weight: 800; flex-shrink: 0;
+      border: 1px solid rgba(37,211,102,.2);
     }
-    .user-name  { font-weight:600; }
-    .user-id    { font-size:.75rem; color:var(--muted); }
+    .user-name { font-weight: 600; font-size: .88rem; }
+    .user-id   { font-size: .7rem; color: var(--dim); }
 
+    /* pill */
     .pill {
-      display:inline-flex; align-items:center; gap:5px;
-      border-radius:100px; padding:4px 11px; font-size:.75rem; font-weight:600;
+      display: inline-flex; align-items: center; gap: 5px;
+      border-radius: 100px; padding: 4px 11px;
+      font-size: .72rem; font-weight: 700; letter-spacing: .2px;
     }
-    .pill-green  { background:rgba(37,211,102,.12); color:var(--green); border:1px solid rgba(37,211,102,.25); }
-    .pill-red    { background:rgba(255,85,85,.12);  color:var(--red);   border:1px solid rgba(255,85,85,.25); }
-    .pill-yellow { background:rgba(240,192,64,.12); color:var(--yellow);border:1px solid rgba(240,192,64,.25); }
+    .pill-green  { background: rgba(37,211,102,.1); color: var(--g1); border: 1px solid rgba(37,211,102,.2); }
+    .pill-red    { background: rgba(240,85,85,.1);  color: var(--red);  border: 1px solid rgba(240,85,85,.2); }
+    .pill-yellow { background: rgba(240,192,64,.1); color: var(--yellow);border: 1px solid rgba(240,192,64,.2); }
 
-    .actions { display:flex; gap:6px; flex-wrap:wrap; }
-    .act-btn {
-      padding:5px 12px; border-radius:8px; font-size:.78rem; font-weight:600;
-      text-decoration:none; border:1px solid transparent; transition:all .18s;
+    /* actions */
+    .actions { display: flex; gap: 6px; }
+    .act {
+      padding: 5px 12px; border-radius: 8px; font-size: .75rem; font-weight: 600;
+      text-decoration: none; border: 1px solid transparent; transition: all .18s;
+      white-space: nowrap;
     }
-    .act-approve { background:rgba(37,211,102,.12); color:var(--green); border-color:rgba(37,211,102,.25); }
-    .act-approve:hover { background:rgba(37,211,102,.22); }
-    .act-ban  { background:rgba(255,85,85,.1); color:var(--red); border-color:rgba(255,85,85,.25); }
-    .act-ban:hover  { background:rgba(255,85,85,.2); }
-    .act-unban { background:rgba(240,192,64,.1); color:var(--yellow); border-color:rgba(240,192,64,.25); }
-    .act-unban:hover { background:rgba(240,192,64,.2); }
+    .act-approve { background: rgba(37,211,102,.08); color: var(--g1); border-color: rgba(37,211,102,.2); }
+    .act-approve:hover { background: rgba(37,211,102,.18); }
+    .act-ban     { background: rgba(240,85,85,.08); color: var(--red); border-color: rgba(240,85,85,.2); }
+    .act-ban:hover { background: rgba(240,85,85,.18); }
+    .act-unban   { background: rgba(240,192,64,.08); color: var(--yellow); border-color: rgba(240,192,64,.2); }
+    .act-unban:hover { background: rgba(240,192,64,.18); }
 
-    .checked-val { color:var(--green); font-weight:600; }
+    .checks { font-weight: 700; color: var(--g1); }
 
-    @media(max-width:700px) {
-      .config-form { grid-template-columns:1fr; }
-      .topbar { padding:0 16px; }
-      .container { padding:20px 12px; }
-      th:nth-child(3), td:nth-child(3) { display:none; }
+    .empty { padding: 48px; text-align: center; color: var(--dim); font-size: .88rem; }
+
+    @media(max-width:768px) {
+      .sidebar { display: none; }
+      .main { margin-left: 0; }
+      .content { padding: 20px 16px; }
+      .config-grid { grid-template-columns: 1fr; }
     }
   </style>
 </head>
 <body>
 
-  <!-- TOPBAR -->
-  <div class="topbar">
-    <div class="topbar-left">
-      <div class="topbar-icon">🛡️</div>
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sb-brand">
+      <div class="sb-logo">🛡️</div>
       <div>
-        <div class="topbar-title">Admin Dashboard</div>
-        <div class="topbar-sub">WA Number Checker</div>
-      </div>
-    </div>
-    <div class="topbar-right">
-      <div class="badge-live"><span class="dot"></span>Live</div>
-      <a href="/" class="btn-logout">← Home</a>
-    </div>
-  </div>
-
-  <div class="container">
-
-    <!-- STATS -->
-    <div class="stats">
-      <div class="stat-card">
-        <div class="stat-icon">👥</div>
-        <div class="stat-label">Total Users</div>
-        <div class="stat-val"><%= users.length %></div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-icon">✅</div>
-        <div class="stat-label">Approved</div>
-        <div class="stat-val"><%= users.filter(u=>u.approved).length %></div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-icon">⏳</div>
-        <div class="stat-label">Pending</div>
-        <div class="stat-val"><%= users.filter(u=>!u.approved && !u.banned).length %></div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-icon">🚫</div>
-        <div class="stat-label">Banned</div>
-        <div class="stat-val"><%= users.filter(u=>u.banned).length %></div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-icon">🔢</div>
-        <div class="stat-label">Total Checked</div>
-        <div class="stat-val"><%= users.reduce((s,u)=>s+u.totalChecked,0) %></div>
+        <div class="sb-title">Admin Panel</div>
+        <div class="sb-sub">WA Number Checker</div>
       </div>
     </div>
 
-    <!-- API CONFIG -->
-    <div class="section">
-      <div class="section-title"><span>⚙️</span> API Configuration</div>
-      <div class="config-card">
-        <form method="POST" action="/admin/config" class="config-form">
-          <div class="form-group">
-            <label class="lbl">API URL</label>
-            <input class="inp" name="apiUrl" value="<%= config?.apiUrl ?? '' %>" placeholder="https://api.maytapi.com/..." required/>
+    <nav class="sb-nav">
+      <div class="sb-label">Overview</div>
+      <a class="sb-item active" href="#stats">
+        <span class="sb-icon">📊</span> Dashboard
+      </a>
+
+      <div class="sb-label">Management</div>
+      <a class="sb-item" href="#config">
+        <span class="sb-icon">⚙️</span> API Config
+      </a>
+      <a class="sb-item" href="#top-users">
+        <span class="sb-icon">🏆</span> Top Users
+      </a>
+      <a class="sb-item" href="#all-users">
+        <span class="sb-icon">👥</span> All Users
+      </a>
+    </nav>
+
+    <div class="sb-footer">
+      <a href="/" class="sb-logout">
+        <span class="sb-icon">←</span> Back to Site
+      </a>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="main">
+
+    <!-- TOPBAR -->
+    <div class="topbar">
+      <div>
+        <div class="topbar-title">Dashboard</div>
+        <div class="topbar-crumb">Admin / Overview</div>
+      </div>
+      <div class="live-badge"><span class="dot"></span> Live</div>
+    </div>
+
+    <div class="content">
+
+      <!-- STATS -->
+      <div class="stats-grid" id="stats">
+        <div class="stat">
+          <div class="stat-top">
+            <div class="stat-icon ic-blue">👥</div>
+            <span class="stat-trend">Total</span>
           </div>
-          <div class="form-group">
-            <label class="lbl">API Token</label>
-            <input class="inp" name="apiToken" value="<%= config?.apiToken ?? '' %>" placeholder="your-secret-token"/>
+          <div class="stat-val"><%= users.length %></div>
+          <div class="stat-lbl">Registered Users</div>
+        </div>
+        <div class="stat">
+          <div class="stat-top">
+            <div class="stat-icon ic-green">✅</div>
+            <span class="stat-trend">Active</span>
           </div>
-          <button class="btn-save" type="submit">💾 Save</button>
+          <div class="stat-val"><%= users.filter(u=>u.approved && !u.banned).length %></div>
+          <div class="stat-lbl">Approved Users</div>
+        </div>
+        <div class="stat">
+          <div class="stat-top">
+            <div class="stat-icon ic-yellow">⏳</div>
+            <span class="stat-trend">Waiting</span>
+          </div>
+          <div class="stat-val"><%= users.filter(u=>!u.approved && !u.banned).length %></div>
+          <div class="stat-lbl">Pending Approval</div>
+        </div>
+        <div class="stat">
+          <div class="stat-top">
+            <div class="stat-icon ic-red">🚫</div>
+            <span class="stat-trend">Blocked</span>
+          </div>
+          <div class="stat-val"><%= users.filter(u=>u.banned).length %></div>
+          <div class="stat-lbl">Banned Users</div>
+        </div>
+        <div class="stat">
+          <div class="stat-top">
+            <div class="stat-icon ic-green">🔢</div>
+            <span class="stat-trend">All time</span>
+          </div>
+          <div class="stat-val"><%= users.reduce((s,u)=>s+u.totalChecked,0).toLocaleString() %></div>
+          <div class="stat-lbl">Numbers Checked</div>
+        </div>
+      </div>
+
+      <!-- API CONFIG -->
+      <div class="card" id="config">
+        <div class="card-head">
+          <div class="card-title">⚙️ API Configuration</div>
+          <% if(config?.apiUrl){ %>
+          <span class="card-count">✅ Configured</span>
+          <% } else { %>
+          <span class="card-count" style="color:var(--red);border-color:rgba(240,85,85,.2);background:rgba(240,85,85,.08)">⚠️ Not Set</span>
+          <% } %>
+        </div>
+        <form method="POST" action="/admin/config">
+          <div class="config-body">
+            <div class="config-grid">
+              <div class="form-group">
+                <label class="form-label">API URL</label>
+                <input class="form-input" name="apiUrl" value="<%= config?.apiUrl ?? '' %>" placeholder="https://api.maytapi.com/api/..." required/>
+              </div>
+              <div class="form-group">
+                <label class="form-label">API Token</label>
+                <input class="form-input" name="apiToken" type="password" value="<%= config?.apiToken ?? '' %>" placeholder="••••••••••••••••"/>
+              </div>
+            </div>
+          </div>
+          <div class="config-footer">
+            <button class="btn-save" type="submit">💾 Save Configuration</button>
+          </div>
         </form>
       </div>
-    </div>
 
-    <!-- TOP USERS -->
-    <div class="section">
-      <div class="section-title"><span>🏆</span> Top Users by Checks</div>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>User</th>
-              <th>Checked</th>
-              <th>Status</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-          <% topUsers.forEach((u, i) => { %>
-            <tr>
-              <td style="color:var(--muted);font-weight:600"><%= i+1 %></td>
-              <td>
-                <div class="user-cell">
-                  <div class="avatar"><%= (u.name||'?')[0].toUpperCase() %></div>
-                  <div>
-                    <div class="user-name"><%= u.name || 'Unknown' %></div>
-                    <div class="user-id">ID: <%= u.userId %></div>
+      <!-- TOP USERS -->
+      <div class="card" id="top-users">
+        <div class="card-head">
+          <div class="card-title">🏆 Top Users by Activity</div>
+          <span class="card-count"><%= topUsers.length %> users</span>
+        </div>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Rank</th><th>User</th><th>Checks</th><th>Status</th><th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+            <% topUsers.forEach((u,i) => { %>
+              <tr>
+                <td><span class="rank rank-<%= i+1 %>">#<%= i+1 %></span></td>
+                <td>
+                  <div class="user-cell">
+                    <div class="avatar"><%= (u.name||'?')[0].toUpperCase() %></div>
+                    <div>
+                      <div class="user-name"><%= u.name || 'Unknown' %></div>
+                      <div class="user-id"><%= u.userId %></div>
+                    </div>
                   </div>
-                </div>
-              </td>
-              <td><span class="checked-val"><%=u.totalChecked%></span></td>
-              <td>
-                <% if(u.banned){ %>
-                  <span class="pill pill-red">🚫 Banned</span>
-                <% } else if(u.approved){ %>
-                  <span class="pill pill-green">✅ Approved</span>
-                <% } else { %>
-                  <span class="pill pill-yellow">⏳ Pending</span>
-                <% } %>
-              </td>
-              <td>
-                <div class="actions">
-                  <% if(!u.approved){ %>
-                  <a href="/admin/approve/<%= u.userId %>" class="act-btn act-approve">✅ Approve</a>
-                  <% } %>
-                  <% if(!u.banned){ %>
-                  <a href="/admin/ban/<%= u.userId %>" class="act-btn act-ban">🚫 Ban</a>
-                  <% } else { %>
-                  <a href="/admin/unban/<%= u.userId %>" class="act-btn act-unban">🔓 Unban</a>
-                  <% } %>
-                </div>
-              </td>
-            </tr>
-          <% }) %>
-          <% if(!topUsers.length){ %>
-            <tr><td colspan="5" style="text-align:center;color:var(--muted);padding:32px">No users yet</td></tr>
-          <% } %>
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- ALL USERS -->
-    <div class="section">
-      <div class="section-title"><span>👥</span> All Users</div>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>User</th>
-              <th>Checked</th>
-              <th>Status</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-          <% users.forEach(u => { %>
-            <tr>
-              <td>
-                <div class="user-cell">
-                  <div class="avatar"><%= (u.name||'?')[0].toUpperCase() %></div>
-                  <div>
-                    <div class="user-name"><%= u.name || 'Unknown' %></div>
-                    <div class="user-id">ID: <%= u.userId %></div>
+                </td>
+                <td><span class="checks"><%= u.totalChecked.toLocaleString() %></span></td>
+                <td>
+                  <% if(u.banned){ %><span class="pill pill-red">🚫 Banned</span>
+                  <% } else if(u.approved){ %><span class="pill pill-green">✅ Approved</span>
+                  <% } else { %><span class="pill pill-yellow">⏳ Pending</span><% } %>
+                </td>
+                <td>
+                  <div class="actions">
+                    <% if(!u.approved && !u.banned){ %>
+                    <a href="/admin/approve/<%= u.userId %>" class="act act-approve">✅ Approve</a>
+                    <% } %>
+                    <% if(!u.banned){ %>
+                    <a href="/admin/ban/<%= u.userId %>" class="act act-ban">🚫 Ban</a>
+                    <% } else { %>
+                    <a href="/admin/unban/<%= u.userId %>" class="act act-unban">🔓 Unban</a>
+                    <% } %>
                   </div>
-                </div>
-              </td>
-              <td><span class="checked-val"><%=u.totalChecked%></span></td>
-              <td>
-                <% if(u.banned){ %>
-                  <span class="pill pill-red">🚫 Banned</span>
-                <% } else if(u.approved){ %>
-                  <span class="pill pill-green">✅ Approved</span>
-                <% } else { %>
-                  <span class="pill pill-yellow">⏳ Pending</span>
-                <% } %>
-              </td>
-              <td>
-                <div class="actions">
-                  <% if(!u.approved){ %>
-                  <a href="/admin/approve/<%= u.userId %>" class="act-btn act-approve">✅ Approve</a>
-                  <% } %>
-                  <% if(!u.banned){ %>
-                  <a href="/admin/ban/<%= u.userId %>" class="act-btn act-ban">🚫 Ban</a>
-                  <% } else { %>
-                  <a href="/admin/unban/<%= u.userId %>" class="act-btn act-unban">🔓 Unban</a>
-                  <% } %>
-                </div>
-              </td>
-            </tr>
-          <% }) %>
-          <% if(!users.length){ %>
-            <tr><td colspan="4" style="text-align:center;color:var(--muted);padding:32px">No users yet</td></tr>
-          <% } %>
-          </tbody>
-        </table>
+                </td>
+              </tr>
+            <% }) %>
+            <% if(!topUsers.length){ %>
+              <tr><td colspan="5"><div class="empty">No users yet</div></td></tr>
+            <% } %>
+            </tbody>
+          </table>
+        </div>
       </div>
-    </div>
 
-  </div>
+      <!-- ALL USERS -->
+      <div class="card" id="all-users">
+        <div class="card-head">
+          <div class="card-title">👥 All Users</div>
+          <span class="card-count"><%= users.length %> total</span>
+        </div>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr><th>User</th><th>Checks</th><th>Status</th><th>Actions</th></tr>
+            </thead>
+            <tbody>
+            <% users.forEach(u => { %>
+              <tr>
+                <td>
+                  <div class="user-cell">
+                    <div class="avatar"><%= (u.name||'?')[0].toUpperCase() %></div>
+                    <div>
+                      <div class="user-name"><%= u.name || 'Unknown' %></div>
+                      <div class="user-id"><%= u.userId %></div>
+                    </div>
+                  </div>
+                </td>
+                <td><span class="checks"><%= u.totalChecked.toLocaleString() %></span></td>
+                <td>
+                  <% if(u.banned){ %><span class="pill pill-red">🚫 Banned</span>
+                  <% } else if(u.approved){ %><span class="pill pill-green">✅ Approved</span>
+                  <% } else { %><span class="pill pill-yellow">⏳ Pending</span><% } %>
+                </td>
+                <td>
+                  <div class="actions">
+                    <% if(!u.approved && !u.banned){ %>
+                    <a href="/admin/approve/<%= u.userId %>" class="act act-approve">✅ Approve</a>
+                    <% } %>
+                    <% if(!u.banned){ %>
+                    <a href="/admin/ban/<%= u.userId %>" class="act act-ban">🚫 Ban</a>
+                    <% } else { %>
+                    <a href="/admin/unban/<%= u.userId %>" class="act act-unban">🔓 Unban</a>
+                    <% } %>
+                  </div>
+                </td>
+              </tr>
+            <% }) %>
+            <% if(!users.length){ %>
+              <tr><td colspan="4"><div class="empty">No users yet</div></td></tr>
+            <% } %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div><!-- /content -->
+  </div><!-- /main -->
+
 </body>
 </html>
