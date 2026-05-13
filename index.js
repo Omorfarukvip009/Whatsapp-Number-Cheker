@@ -1,265 +1,777 @@
 // ==========================================
-// TELEGRAM BOT - NODEJS FINAL FIX
+// TELEGRAM BOT - NODEJS VERSION
+// WITH USER REQUEST SYSTEM
+// RENDER READY
 // ==========================================
 
-const TelegramBot = require("node-telegram-bot-api");
 const express = require("express");
 const axios = require("axios");
+
+const {
+  Telegraf,
+  Markup
+} = require("telegraf");
 
 // ==========================================
 // ENV
 // ==========================================
 const BOT_TOKEN = process.env.BOT_TOKEN;
-const PORT = process.env.PORT || 3000;
+
+const ADMIN_ID = 5948588400;
+
+let API_URL =
+  process.env.API_URL ||
+  "https://api.maytapi.com/api/default/checkPhones";
+
+let API_TOKEN =
+  process.env.API_TOKEN ||
+  "default_token";
 
 // ==========================================
-// ADMINS
+// CHECK TOKEN
 // ==========================================
-const ADMIN_IDS = [5948588400, 6786393087];
-
-// ==========================================
-// API CONFIG
-// ==========================================
-let API_URL = "https://api.maytapi.com/api/default/checkPhones";
-let API_TOKEN = "default_token";
-
-// ==========================================
-// EXPRESS (UPTIME)
-// ==========================================
-const app = express();
-const START_TIME = Date.now();
-
-app.get("/", (req, res) => {
-    const uptime = Math.floor((Date.now() - START_TIME) / 1000);
-
-    res.send(`
-        <h1>BOT RUNNING ✅</h1>
-        <p>Uptime: ${uptime} seconds</p>
-    `);
-});
-
-app.listen(PORT, () => {
-    console.log("Web running on", PORT);
-});
+if (!BOT_TOKEN) {
+  console.log("BOT_TOKEN Missing");
+  process.exit(1);
+}
 
 // ==========================================
 // BOT
 // ==========================================
-const bot = new TelegramBot(BOT_TOKEN, { polling: true });
+const bot = new Telegraf(BOT_TOKEN);
 
 // ==========================================
 // MEMORY
 // ==========================================
 const users = {};
-const approved = new Set();
-const pending = {};
-const waiting = {};
-const setUrl = {};
+
+const approvedUsers = new Set();
+
+const pendingUsers = {};
 
 // ==========================================
-// HELPERS
+// INIT USER
 // ==========================================
-const isAdmin = (id) => ADMIN_IDS.includes(id);
-
 function initUser(user) {
-    const id = String(user.id);
-    if (!users[id]) {
-        users[id] = {
-            count: 0,
-            reset: Date.now() + 3600000
-        };
-    }
-}
 
-function resetLimit(id) {
-    if (Date.now() > users[id].reset) {
-        users[id].count = 0;
-        users[id].reset = Date.now() + 3600000;
-    }
-}
+  const uid = String(user.id);
 
-function format(nums) {
-    return nums.map(n => `+${n}`).join("\n");
+  if (!users[uid]) {
+
+    users[uid] = {
+
+      name:
+        user.first_name ||
+        user.username ||
+        "Unknown",
+
+      hour_count: 0,
+
+      hour_reset:
+        Math.floor(Date.now() / 1000) + 3600,
+
+      waiting: false,
+
+      set_url: false
+    };
+  }
 }
 
 // ==========================================
-// API FIXED REQUEST (IMPORTANT)
+// RESET LIMIT
+// ==========================================
+function resetLimit(uid) {
+
+  const now =
+    Math.floor(Date.now() / 1000);
+
+  if (
+    now >= users[uid].hour_reset
+  ) {
+
+    users[uid].hour_count = 0;
+
+    users[uid].hour_reset =
+      now + 3600;
+  }
+}
+
+// ==========================================
+// KEYBOARD
+// ==========================================
+function getKeyboard(uid) {
+
+  const rows = [
+    ["Check Number"]
+  ];
+
+  if (Number(uid) === ADMIN_ID) {
+
+    rows.push(["Set Url"]);
+
+    rows.push(["User Request"]);
+  }
+
+  return Markup.keyboard(rows)
+    .resize();
+}
+
+// ==========================================
+// FORMAT NUMBERS
+// ==========================================
+function formatNumbers(numbers) {
+
+  return numbers
+    .map(
+      n => `<code>+${n}</code>`
+    )
+    .join("\n");
+}
+
+// ==========================================
+// API CHECK
 // ==========================================
 async function checkBatch(numbers) {
+
+  const headers = {
+
+    accept: "application/json",
+
+    "x-maytapi-key":
+      API_TOKEN,
+
+    "Content-Type":
+      "application/json"
+  };
+
+  const response =
+    await axios.post(
+
+      API_URL,
+
+      {
+        numbers
+      },
+
+      {
+        headers,
+        timeout: 60000
+      }
+    );
+
+  const data =
+    response.data;
+
+  const reg = [];
+  const unreg = [];
+
+  for (
+    const item of data.data || []
+  ) {
+
+    let number;
+
     try {
 
-        const payload = {
-            numbers: numbers.map(String)
-        };
+      number =
+        item.id.user;
 
-        const res = await axios.post(API_URL, payload, {
-            headers: {
-                "accept": "application/json",
-                "x-maytapi-key": API_TOKEN,
-                "Content-Type": "application/json"
-            },
-            timeout: 60000,
-            validateStatus: () => true
-        });
+    } catch {
 
-        if (res.status !== 200) {
-            console.log("API ERROR:", res.data);
-            throw new Error("API failed");
-        }
-
-        const reg = [];
-        const unreg = [];
-
-        for (const item of res.data?.data || []) {
-
-            let num = item?.id?.user || String(item?.id).replace("@c.us", "");
-
-            if (item.valid) reg.push(num);
-            else unreg.push(num);
-        }
-
-        return { reg, unreg };
-
-    } catch (e) {
-        console.log("API ERROR:", e.message);
-        throw e;
+      number = String(
+        item.id
+      ).replace("@c.us", "");
     }
+
+    if (
+      item.valid === true
+    ) {
+
+      reg.push(number);
+
+    } else {
+
+      unreg.push(number);
+    }
+  }
+
+  return {
+    reg,
+    unreg
+  };
 }
 
 // ==========================================
-// BATCH RUN
+// RUN ALL BATCHES
 // ==========================================
-async function runAll(numbers) {
-    let reg = [];
-    let unreg = [];
+async function runAllBatches(numbers) {
 
-    for (let i = 0; i < numbers.length; i += 10) {
-        const batch = numbers.slice(i, i + 10);
-        const result = await checkBatch(batch);
+  let allReg = [];
 
-        reg.push(...result.reg);
-        unreg.push(...result.unreg);
-    }
+  let allUnreg = [];
 
-    return { reg, unreg };
+  for (
+    let i = 0;
+    i < numbers.length;
+    i += 10
+  ) {
+
+    const batch =
+      numbers.slice(
+        i,
+        i + 10
+      );
+
+    const result =
+      await checkBatch(batch);
+
+    allReg = [
+      ...allReg,
+      ...result.reg
+    ];
+
+    allUnreg = [
+      ...allUnreg,
+      ...result.unreg
+    ];
+  }
+
+  return {
+
+    reg: allReg,
+
+    unreg: allUnreg
+  };
 }
 
 // ==========================================
-// START
+// START COMMAND
 // ==========================================
-bot.onText(/\/start/, (msg) => {
-    initUser(msg.from);
+bot.start(async ctx => {
 
-    bot.sendMessage(msg.chat.id, "Welcome", {
-        reply_markup: {
-            keyboard: [
-                [{ text: "Check Number" }],
-                [{ text: "Set Url" }, { text: "User Request" }]
-            ],
-            resize_keyboard: true
-        }
-    });
+  const user = ctx.from;
+
+  initUser(user);
+
+  await ctx.reply(
+
+    "Welcome",
+
+    getKeyboard(user.id)
+  );
 });
 
 // ==========================================
-// MESSAGE HANDLER
+// APPROVE USER
 // ==========================================
-bot.on("message", async (msg) => {
+bot.action(
+  /approve_(.+)/,
 
-    if (!msg.text) return;
+  async ctx => {
 
-    const user = msg.from;
-    const id = String(user.id);
-    const text = msg.text.trim();
+    const uid =
+      ctx.match[1];
 
-    initUser(user);
-    resetLimit(id);
+    approvedUsers.add(uid);
 
-    // =========================
-    // SET URL
-    // =========================
-    if (text === "Set Url" && isAdmin(user.id)) {
-        setUrl[id] = true;
-        return bot.sendMessage(msg.chat.id, "Send API URL");
-    }
+    delete pendingUsers[uid];
 
-    if (setUrl[id] && isAdmin(user.id)) {
+    await ctx.editMessageText(
+      `✅ Approved ${uid}`
+    );
+
+    try {
+
+      await ctx.telegram.sendMessage(
+
+        uid,
+
+        "✅ Your access approved"
+      );
+
+    } catch {}
+  }
+);
+
+// ==========================================
+// REJECT USER
+// ==========================================
+bot.action(
+  /reject_(.+)/,
+
+  async ctx => {
+
+    const uid =
+      ctx.match[1];
+
+    delete pendingUsers[uid];
+
+    await ctx.editMessageText(
+      `❌ Rejected ${uid}`
+    );
+
+    try {
+
+      await ctx.telegram.sendMessage(
+
+        uid,
+
+        "❌ Your request rejected"
+      );
+
+    } catch {}
+  }
+);
+
+// ==========================================
+// TEXT HANDLER
+// ==========================================
+bot.on(
+  "text",
+
+  async ctx => {
+
+    try {
+
+      const user =
+        ctx.from;
+
+      const uid =
+        String(user.id);
+
+      const text =
+        ctx.message.text.trim();
+
+      initUser(user);
+
+      resetLimit(uid);
+
+      // ==========================================
+      // SET URL
+      // ==========================================
+      if (
+        text === "Set Url" &&
+        user.id === ADMIN_ID
+      ) {
+
+        users[uid].set_url = true;
+
+        return ctx.reply(
+          "Send full API URL"
+        );
+      }
+
+      if (
+        users[uid].set_url &&
+        user.id === ADMIN_ID
+      ) {
+
         try {
-            const base = text.split("/screen")[0];
-            const token = text.split("token=")[1].split("&")[0];
 
-            API_URL = base + "/checkPhones";
-            API_TOKEN = token;
+          const url =
+            text;
 
-            bot.sendMessage(msg.chat.id, "API Updated ✅");
+          const base =
+            url.split(
+              "/screen"
+            )[0];
+
+          const token =
+            url
+              .split(
+                "token="
+              )[1]
+              .split("&")[0];
+
+          API_URL =
+            `${base}/checkPhones`;
+
+          API_TOKEN =
+            token;
+
+          await ctx.reply(
+            "✅ API Updated"
+          );
+
         } catch {
-            bot.sendMessage(msg.chat.id, "Invalid URL ❌");
+
+          await ctx.reply(
+            "❌ Invalid URL"
+          );
         }
 
-        delete setUrl[id];
+        users[uid].set_url = false;
+
         return;
-    }
+      }
 
-    // =========================
-    // CHECK NUMBER
-    // =========================
-    if (text === "Check Number") {
+      // ==========================================
+      // USER REQUEST PANEL
+      // ==========================================
+      if (
+        text ===
+          "User Request" &&
+        user.id === ADMIN_ID
+      ) {
 
-        if (!approved.has(id) && !isAdmin(user.id)) {
+        const pendingIds =
+          Object.keys(
+            pendingUsers
+          );
 
-            pending[id] = user.first_name;
+        if (
+          pendingIds.length === 0
+        ) {
 
-            bot.sendMessage(msg.chat.id, "Access denied");
-
-            return;
+          return ctx.reply(
+            "No pending users"
+          );
         }
 
-        waiting[id] = true;
-        return bot.sendMessage(msg.chat.id, "Send numbers (max 100)");
-    }
+        for (
+          const puid of pendingIds
+        ) {
 
-    // =========================
-    // PROCESS NUMBERS
-    // =========================
-    if (waiting[id]) {
+          const name =
+            pendingUsers[puid];
 
-        let numbers = text.split("\n")
-            .map(n => n.replace(/\D/g, ""))
-            .filter(n => n.length > 0)
-            .slice(0, 100);
+          await ctx.reply(
 
-        if (!numbers.length)
-            return bot.sendMessage(msg.chat.id, "No valid numbers");
+            `User: ${name}\nID: ${puid}`,
 
-        if (!isAdmin(user.id)) {
-            const remain = 400 - users[id].count;
-            if (numbers.length > remain)
-                return bot.sendMessage(msg.chat.id, `Limit left: ${remain}`);
+            Markup.inlineKeyboard([
+              [
+                Markup.button.callback(
+                  "✅ Allow",
+                  `approve_${puid}`
+                ),
+
+                Markup.button.callback(
+                  "❌ Reject",
+                  `reject_${puid}`
+                )
+              ]
+            ])
+          );
         }
 
-        bot.sendMessage(msg.chat.id, "Checking...");
+        return;
+      }
+
+      // ==========================================
+      // CHECK NUMBER BUTTON
+      // ==========================================
+      if (
+        text ===
+        "Check Number"
+      ) {
+
+        if (
+          !approvedUsers.has(
+            uid
+          ) &&
+          user.id !== ADMIN_ID
+        ) {
+
+          pendingUsers[uid] =
+            user.first_name ||
+            "Unknown";
+
+          await ctx.reply(
+
+            "❌ Access denied\nRequest sent to admin"
+          );
+
+          try {
+
+            await ctx.telegram.sendMessage(
+
+              ADMIN_ID,
+
+              `New User Request:\n${user.first_name}\n${uid}`,
+
+              {
+                reply_markup: {
+                  inline_keyboard: [
+                    [
+                      {
+                        text:
+                          "✅ Allow",
+
+                        callback_data:
+                          `approve_${uid}`
+                      },
+
+                      {
+                        text:
+                          "❌ Reject",
+
+                        callback_data:
+                          `reject_${uid}`
+                      }
+                    ]
+                  ]
+                }
+              }
+            );
+
+          } catch (e) {
+
+            console.log(
+              e.message
+            );
+          }
+
+          return;
+        }
+
+        users[uid].waiting =
+          true;
+
+        return ctx.reply(
+          "Send numbers (max 100)"
+        );
+      }
+
+      // ==========================================
+      // PROCESS NUMBERS
+      // ==========================================
+      if (
+        users[uid].waiting
+      ) {
+
+        let numbers = [];
+
+        for (
+          let line of text.split(
+            "\n"
+          )
+        ) {
+
+          line = line
+            .trim()
+            .replace(
+              /\s+/g,
+              ""
+            );
+
+          if (
+            line.startsWith("+")
+          ) {
+
+            line =
+              line.substring(
+                1
+              );
+          }
+
+          if (
+            /^\d+$/.test(
+              line
+            )
+          ) {
+
+            numbers.push(
+              line
+            );
+          }
+        }
+
+        // ==========================================
+        // NO VALID
+        // ==========================================
+        if (
+          numbers.length === 0
+        ) {
+
+          return ctx.reply(
+            "No valid numbers"
+          );
+        }
+
+        // ==========================================
+        // MAX 100
+        // ==========================================
+        if (
+          numbers.length > 100
+        ) {
+
+          return ctx.reply(
+            "Max 100 numbers"
+          );
+        }
+
+        // ==========================================
+        // USER LIMIT
+        // ==========================================
+        if (
+          user.id !== ADMIN_ID
+        ) {
+
+          const remain =
+            400 -
+            users[uid]
+              .hour_count;
+
+          if (
+            numbers.length >
+            remain
+          ) {
+
+            return ctx.reply(
+
+              `Limit exceeded\nRemaining: ${remain}`
+            );
+          }
+        }
+
+        // ==========================================
+        // START CHECKING
+        // ==========================================
+        await ctx.reply(
+
+          `Checking ${numbers.length} numbers...`
+        );
 
         try {
-            const { reg, unreg } = await runAll(numbers);
 
-            users[id].count += numbers.length;
+          const result =
+            await runAllBatches(
+              numbers
+            );
 
-            if (reg.length)
-                bot.sendMessage(msg.chat.id,
-                    "REGISTERED:\n" + format(reg)
-                );
+          // ==========================================
+          // UPDATE LIMIT
+          // ==========================================
+          if (
+            user.id !== ADMIN_ID
+          ) {
 
-            if (unreg.length)
-                bot.sendMessage(msg.chat.id,
-                    "NOT REGISTERED:\n" + format(unreg)
-                );
+            users[
+              uid
+            ].hour_count +=
+              numbers.length;
+          }
+
+          // ==========================================
+          // REGISTERED
+          // ==========================================
+          if (
+            result.reg.length >
+            0
+          ) {
+
+            await ctx.replyWithHTML(
+
+              `✅ <b>Registered Numbers</b>\n\n${formatNumbers(result.reg)}`
+            );
+          }
+
+          // ==========================================
+          // UNREGISTERED
+          // ==========================================
+          if (
+            result.unreg
+              .length > 0
+          ) {
+
+            await ctx.replyWithHTML(
+
+              `❌ <b>Not Registered Numbers</b>\n\n${formatNumbers(result.unreg)}`
+            );
+          }
 
         } catch (e) {
-            bot.sendMessage(msg.chat.id, "API ERROR");
+
+          console.log(e);
+
+          await ctx.reply(
+
+            `Error: ${e.message}`
+          );
         }
 
-        delete waiting[id];
-    }
-});
+        users[uid].waiting =
+          false;
 
-console.log("BOT STARTED");
+        return;
+      }
+
+    } catch (e) {
+
+      console.log(e);
+
+      try {
+
+        await ctx.reply(
+
+          `Error: ${e.message}`
+        );
+
+      } catch {}
+    }
+  }
+);
+
+// ==========================================
+// EXPRESS SERVER
+// ==========================================
+const app = express();
+
+app.get(
+  "/",
+
+  (req, res) => {
+
+    res.send(
+      "Bot Running"
+    );
+  }
+);
+
+// ==========================================
+// PORT
+// ==========================================
+const PORT =
+  process.env.PORT || 3000;
+
+app.listen(
+  PORT,
+
+  () => {
+
+    console.log(
+      `Web Server Running On Port ${PORT}`
+    );
+  }
+);
+
+// ==========================================
+// START BOT
+// ==========================================
+bot.launch();
+
+console.log(
+  "BOT STARTED"
+);
+
+// ==========================================
+// STOP
+// ==========================================
+process.once(
+  "SIGINT",
+
+  () =>
+    bot.stop(
+      "SIGINT"
+    )
+);
+
+process.once(
+  "SIGTERM",
+
+  () =>
+    bot.stop(
+      "SIGTERM"
+    )
+);
