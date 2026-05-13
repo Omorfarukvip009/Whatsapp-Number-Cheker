@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: telegram-checker-bot
+    name: telegram-webhook-bot
     env: node
     plan: free
     buildCommand: npm install
