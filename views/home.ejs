@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>WhatsApp Number Checker Bot</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --green:      #25D366;
+      --green-dark: #128C7E;
+      --green-deep: #075E54;
+      --bg:         #0a0f0d;
+      --card:       #111a16;
+      --card2:      #162219;
+      --border:     rgba(37,211,102,.18);
+      --text:       #e8f5e9;
+      --muted:      #7ab892;
+    }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      overflow-x: hidden;
+    }
+
+    /* animated background blobs */
+    body::before, body::after {
+      content: '';
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(120px);
+      opacity: .18;
+      pointer-events: none;
+    }
+    body::before {
+      width: 500px; height: 500px;
+      background: var(--green);
+      top: -120px; left: -120px;
+      animation: drift 12s ease-in-out infinite alternate;
+    }
+    body::after {
+      width: 400px; height: 400px;
+      background: var(--green-dark);
+      bottom: -100px; right: -100px;
+      animation: drift 10s ease-in-out infinite alternate-reverse;
+    }
+    @keyframes drift {
+      from { transform: translate(0,0); }
+      to   { transform: translate(40px, 30px); }
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 48px 40px 40px;
+      max-width: 480px;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 0 60px rgba(37,211,102,.08), 0 24px 48px rgba(0,0,0,.5);
+      position: relative;
+      z-index: 1;
+    }
+
+    /* pulse ring around icon */
+    .icon-wrap {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 28px;
+    }
+    .icon-wrap::before {
+      content: '';
+      position: absolute;
+      width: 100px; height: 100px;
+      border-radius: 50%;
+      border: 2px solid var(--green);
+      opacity: .4;
+      animation: pulse 2.4s ease-out infinite;
+    }
+    .icon-wrap::after {
+      content: '';
+      position: absolute;
+      width: 120px; height: 120px;
+      border-radius: 50%;
+      border: 1px solid var(--green);
+      opacity: .2;
+      animation: pulse 2.4s ease-out .6s infinite;
+    }
+    @keyframes pulse {
+      0%   { transform: scale(.85); opacity: .5; }
+      100% { transform: scale(1.35); opacity: 0; }
+    }
+
+    .icon {
+      width: 80px; height: 80px;
+      background: linear-gradient(135deg, var(--green-dark), var(--green));
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 38px;
+      box-shadow: 0 8px 30px rgba(37,211,102,.35);
+    }
+
+    h1 {
+      font-size: 1.75rem;
+      font-weight: 700;
+      letter-spacing: -.5px;
+      background: linear-gradient(135deg, var(--green), #a8f5c8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 10px;
+    }
+
+    .subtitle {
+      color: var(--muted);
+      font-size: .95rem;
+      margin-bottom: 36px;
+      line-height: 1.6;
+    }
+
+    /* status badge */
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(37,211,102,.1);
+      border: 1px solid rgba(37,211,102,.25);
+      border-radius: 100px;
+      padding: 7px 18px;
+      font-size: .82rem;
+      font-weight: 600;
+      color: var(--green);
+      margin-bottom: 36px;
+      letter-spacing: .4px;
+    }
+    .dot {
+      width: 8px; height: 8px;
+      background: var(--green);
+      border-radius: 50%;
+      animation: blink 1.4s ease-in-out infinite;
+    }
+    @keyframes blink {
+      0%,100% { opacity: 1; }
+      50%      { opacity: .2; }
+    }
+
+    /* stats row */
+    .stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 36px;
+    }
+    .stat {
+      background: var(--card2);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px 8px;
+    }
+    .stat-val {
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: var(--green);
+    }
+    .stat-lbl {
+      font-size: .7rem;
+      color: var(--muted);
+      margin-top: 3px;
+      letter-spacing: .3px;
+    }
+
+    /* divider */
+    .divider {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 0 0 28px;
+    }
+
+    /* admin button */
+    .btn-admin {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      width: 100%;
+      padding: 15px 20px;
+      background: linear-gradient(135deg, var(--green-deep), var(--green-dark));
+      border: 1px solid rgba(37,211,102,.3);
+      border-radius: 14px;
+      color: #fff;
+      font-size: 1rem;
+      font-weight: 600;
+      text-decoration: none;
+      letter-spacing: .3px;
+      cursor: pointer;
+      transition: all .25s;
+      box-shadow: 0 4px 20px rgba(37,211,102,.2);
+      position: relative;
+      overflow: hidden;
+    }
+    .btn-admin::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(255,255,255,.08), transparent);
+      opacity: 0;
+      transition: opacity .25s;
+    }
+    .btn-admin:hover { transform: translateY(-2px); box-shadow: 0 8px 32px rgba(37,211,102,.35); }
+    .btn-admin:hover::before { opacity: 1; }
+    .btn-admin:active { transform: translateY(0); }
+
+    .btn-icon { font-size: 1.2rem; }
+    .btn-arrow { margin-left: auto; opacity: .6; font-size: .9rem; }
+
+    .footer {
+      margin-top: 28px;
+      font-size: .75rem;
+      color: var(--muted);
+      opacity: .6;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+
+    <div class="icon-wrap">
+      <div class="icon">📱</div>
+    </div>
+
+    <h1>WhatsApp Number Checker</h1>
+    <p class="subtitle">Telegram bot to verify WhatsApp registration status for bulk numbers instantly.</p>
+
+    <div class="status">
+      <span class="dot"></span>
+      Bot is Running
+    </div>
+
+    <div class="stats">
+      <div class="stat">
+        <div class="stat-val">100</div>
+        <div class="stat-lbl">Max / Check</div>
+      </div>
+      <div class="stat">
+        <div class="stat-val">⚡</div>
+        <div class="stat-lbl">Fast API</div>
+      </div>
+      <div class="stat">
+        <div class="stat-val">🔒</div>
+        <div class="stat-lbl">Secure</div>
+      </div>
+    </div>
+
+    <hr class="divider">
+
+    <a href="/admin/login" class="btn-admin">
+      <span class="btn-icon">🛡️</span>
+      Admin Panel
+      <span class="btn-arrow">→</span>
+    </a>
+
+    <p class="footer">WhatsApp Number Checker &copy; 2025</p>
+  </div>
+</body>
+</html>
