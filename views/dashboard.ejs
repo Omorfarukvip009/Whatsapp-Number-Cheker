@@ -1,0 +1,24 @@
+<h1>Admin Dashboard</h1>
+
+<h3>API CONFIG</h3>
+
+<form method="POST" action="/admin/config">
+  <input name="apiUrl" value="<%= config?.apiUrl %>" placeholder="API URL"><br><br>
+  <input name="apiToken" value="<%= config?.apiToken %>" placeholder="API TOKEN"><br><br>
+  <button>Save</button>
+</form>
+
+<hr>
+
+<h2>Top Users</h2>
+
+<ul>
+<% topUsers.forEach(u=>{ %>
+  <li>
+    <%= u.name %> - <%= u.totalChecked %>
+    | <a href="/admin/ban/<%= u.userId %>">Ban</a>
+    | <a href="/admin/unban/<%= u.userId %>">Unban</a>
+    | <a href="/admin/approve/<%= u.userId %>">Approve</a>
+  </li>
+<% }) %>
+</ul>

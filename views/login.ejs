@@ -1,0 +1,11 @@
+<h2>Admin Login</h2>
+
+<form method="POST" action="/admin/login">
+  <input name="username" placeholder="Username"><br><br>
+  <input name="password" type="password" placeholder="Password"><br><br>
+  <button>Login</button>
+</form>
+
+<% if(error){ %>
+<p style="color:red"><%= error %></p>
+<% } %>
