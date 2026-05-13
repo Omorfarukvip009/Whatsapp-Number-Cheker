@@ -10,13 +10,20 @@ const bot = new Telegraf(process.env.BOT_TOKEN);
 bot.start(async (ctx) => {
   const u = ctx.from;
 
-  await User.findOneAndUpdate(
-    { userId: String(u.id) },
-    { userId: String(u.id), name: u.first_name },
-    { upsert: true }
-  );
+  const existing = await User.findOne({ userId: String(u.id) });
 
-  ctx.reply("Welcome ✔ Please wait for approval");
+  if (!existing) {
+    await User.create({ userId: String(u.id), name: u.first_name });
+    return ctx.reply("👋 Welcome! Your request has been sent.\n⏳ Please wait for admin approval.");
+  }
+
+  // Update name only — never overwrite approval/ban status
+  existing.name = u.first_name;
+  await existing.save();
+
+  if (existing.banned)   return ctx.reply("🚫 You are banned from using this bot.");
+  if (existing.approved) return ctx.reply(`✅ Welcome back, ${u.first_name}!\n\nSend me phone numbers (one per line, up to 100) to check WhatsApp registration.`);
+  return ctx.reply("⏳ Your account is pending approval. You'll be notified once approved.");
 });
 
 // MAIN HANDLER
