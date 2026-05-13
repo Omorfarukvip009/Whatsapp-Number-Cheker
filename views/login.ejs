@@ -2,98 +2,150 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
   <title>Admin Login — WA Checker</title>
   <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
     :root {
-      --green:#25D366; --green-dark:#128C7E; --green-deep:#075E54;
-      --bg:#0a0f0d; --card:#111a16; --card2:#162219;
-      --border:rgba(37,211,102,.18); --text:#e8f5e9; --muted:#7ab892; --red:#ff5555;
+      --g1:#25D366; --g2:#128C7E; --g3:#075E54;
+      --bg:#050a07; --s1:#0d1710; --s2:#0f1f13;
+      --border:rgba(37,211,102,.15); --border2:rgba(37,211,102,.08);
+      --text:#e8f5e9; --muted:#6fa87e; --dim:#3d6b4a; --red:#f05555;
+    }
+
+    html, body {
+      height: 100%; -webkit-font-smoothing: antialiased;
     }
     body {
-      font-family:'Segoe UI',system-ui,sans-serif; background:var(--bg); color:var(--text);
-      min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px;
+      font-family: 'Inter','Segoe UI',sans-serif;
+      background: var(--bg); color: var(--text);
+      min-height: 100vh; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: clamp(16px, 4vw, 32px);
+      overflow-x: hidden;
     }
+
     body::before {
-      content:''; position:fixed; width:600px; height:600px;
-      background:radial-gradient(circle,rgba(37,211,102,.12),transparent 70%);
-      top:50%; left:50%; transform:translate(-50%,-50%); pointer-events:none;
+      content:''; position:fixed; inset:0; pointer-events:none; z-index:0;
+      background:
+        radial-gradient(ellipse 70% 70% at 50% 50%, rgba(37,211,102,.07) 0%, transparent 70%),
+        radial-gradient(ellipse 40% 40% at 10% 20%, rgba(18,140,126,.07) 0%, transparent 60%);
     }
+
     .card {
-      background:var(--card); border:1px solid var(--border); border-radius:24px;
-      padding:48px 36px 40px; width:100%; max-width:400px;
-      box-shadow:0 24px 64px rgba(0,0,0,.6),0 0 60px rgba(37,211,102,.06); position:relative; z-index:1;
+      position: relative; z-index: 1;
+      background: var(--s1); border: 1px solid var(--border2);
+      border-radius: clamp(16px, 3vw, 24px);
+      padding: clamp(28px, 6vw, 48px) clamp(20px, 5vw, 36px);
+      width: 100%; max-width: 420px;
+      box-shadow: 0 24px 64px rgba(0,0,0,.6), 0 0 60px rgba(37,211,102,.05);
     }
-    .logo { display:flex; align-items:center; justify-content:center; gap:12px; margin-bottom:32px; }
+
+    .logo {
+      display: flex; align-items: center; justify-content: center;
+      gap: 12px; margin-bottom: 28px;
+    }
     .logo-icon {
-      width:48px; height:48px; background:linear-gradient(135deg,var(--green-dark),var(--green));
-      border-radius:14px; display:flex; align-items:center; justify-content:center;
-      font-size:24px; box-shadow:0 4px 16px rgba(37,211,102,.3);
+      width: 46px; height: 46px; flex-shrink:0;
+      background: linear-gradient(135deg, var(--g2), var(--g1));
+      border-radius: 13px; display: flex; align-items: center; justify-content: center;
+      font-size: 22px; box-shadow: 0 4px 16px rgba(37,211,102,.3);
     }
-    .logo-text { font-size:1.1rem; font-weight:700; color:var(--text); }
-    .logo-sub  { font-size:.75rem; color:var(--muted); }
+    .logo-text { font-size: 1.05rem; font-weight: 700; }
+    .logo-sub  { font-size: .7rem; color: var(--muted); }
+
     h2 {
-      font-size:1.5rem; font-weight:700; margin-bottom:6px;
-      background:linear-gradient(135deg,var(--green),#a8f5c8);
-      -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
+      font-size: clamp(1.3rem, 4vw, 1.5rem); font-weight: 800; margin-bottom: 6px;
+      background: linear-gradient(135deg, var(--g1), #a8f5c8);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
     }
-    .desc { color:var(--muted); font-size:.88rem; margin-bottom:32px; }
-    .field { margin-bottom:18px; }
-    label { display:block; font-size:.8rem; font-weight:600; color:var(--muted); letter-spacing:.5px; margin-bottom:8px; text-transform:uppercase; }
-    .input-wrap { position:relative; }
-    .input-icon { position:absolute; left:14px; top:50%; transform:translateY(-50%); font-size:1rem; pointer-events:none; }
+    .desc { color: var(--muted); font-size: .85rem; margin-bottom: 28px; line-height: 1.5; }
+
+    .error-box {
+      display: flex; align-items: center; gap: 8px;
+      background: rgba(240,85,85,.1); border: 1px solid rgba(240,85,85,.25);
+      border-radius: 10px; padding: 10px 14px;
+      color: var(--red); font-size: .82rem; margin-bottom: 16px; line-height: 1.4;
+    }
+
+    .field { margin-bottom: 16px; }
+    label {
+      display: block; font-size: .72rem; font-weight: 700;
+      color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 7px;
+    }
+    .inp-wrap { position: relative; }
+    .inp-icon {
+      position: absolute; left: 13px; top: 50%; transform: translateY(-50%);
+      font-size: .95rem; pointer-events: none; line-height: 1;
+    }
     input {
-      width:100%; padding:13px 14px 13px 42px; background:var(--card2);
-      border:1px solid var(--border); border-radius:12px; color:var(--text);
-      font-size:.95rem; outline:none; transition:border-color .2s,box-shadow .2s;
+      width: 100%; padding: 12px 14px 12px 40px;
+      background: var(--s2); border: 1px solid var(--border);
+      border-radius: 11px; color: var(--text); font-size: .92rem;
+      outline: none; font-family: inherit;
+      transition: border-color .2s, box-shadow .2s;
+      -webkit-appearance: none; appearance: none;
     }
-    input::placeholder { color:rgba(122,184,146,.4); }
-    input:focus { border-color:var(--green-dark); box-shadow:0 0 0 3px rgba(37,211,102,.12); }
-    .error {
-      display:flex; align-items:center; gap:8px;
-      background:rgba(255,85,85,.1); border:1px solid rgba(255,85,85,.3);
-      border-radius:10px; padding:10px 14px; color:var(--red); font-size:.85rem; margin-bottom:18px;
-    }
+    input::placeholder { color: rgba(111,168,126,.3); }
+    input:focus { border-color: var(--g2); box-shadow: 0 0 0 3px rgba(37,211,102,.1); }
+
     .btn {
-      width:100%; padding:14px; background:linear-gradient(135deg,var(--green-deep),var(--green-dark));
-      border:none; border-radius:12px; color:#fff; font-size:1rem; font-weight:600;
-      cursor:pointer; letter-spacing:.3px; transition:all .22s; box-shadow:0 4px 18px rgba(37,211,102,.22); margin-top:8px;
+      width: 100%; margin-top: 8px;
+      padding: 13px; background: linear-gradient(135deg, var(--g3), var(--g2));
+      border: none; border-radius: 12px; color: #fff;
+      font-size: .95rem; font-weight: 700; cursor: pointer;
+      letter-spacing: -.1px; transition: all .22s; font-family: inherit;
+      box-shadow: 0 4px 18px rgba(37,211,102,.25);
+      -webkit-tap-highlight-color: transparent;
     }
-    .btn:hover { transform:translateY(-2px); box-shadow:0 8px 28px rgba(37,211,102,.35); }
-    .btn:active { transform:translateY(0); }
-    .back { display:block; text-align:center; margin-top:20px; font-size:.82rem; color:var(--muted); text-decoration:none; transition:color .2s; }
-    .back:hover { color:var(--green); }
+    .btn:hover { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(37,211,102,.4); }
+    .btn:active { transform: scale(.98); }
+
+    .back {
+      display: block; text-align: center; margin-top: 18px;
+      font-size: .8rem; color: var(--dim); text-decoration: none;
+      transition: color .2s; padding: 8px;
+    }
+    .back:hover { color: var(--g1); }
   </style>
 </head>
 <body>
   <div class="card">
     <div class="logo">
       <div class="logo-icon">🛡️</div>
-      <div><div class="logo-text">Admin Panel</div><div class="logo-sub">WA Number Checker</div></div>
+      <div>
+        <div class="logo-text">Admin Panel</div>
+        <div class="logo-sub">WA Number Checker</div>
+      </div>
     </div>
+
     <h2>Welcome Back</h2>
     <p class="desc">Sign in to manage users and bot configuration.</p>
+
     <% if(error){ %>
-    <div class="error">⚠️ <%= error %></div>
+    <div class="error-box">⚠️ <%= error %></div>
     <% } %>
+
     <form method="POST" action="/admin/login">
       <div class="field">
         <label>Username</label>
-        <div class="input-wrap">
-          <span class="input-icon">👤</span>
+        <div class="inp-wrap">
+          <span class="inp-icon">👤</span>
           <input name="username" placeholder="admin" autocomplete="username" required/>
         </div>
       </div>
       <div class="field">
         <label>Password</label>
-        <div class="input-wrap">
-          <span class="input-icon">🔑</span>
+        <div class="inp-wrap">
+          <span class="inp-icon">🔑</span>
           <input name="password" type="password" placeholder="••••••••" autocomplete="current-password" required/>
         </div>
       </div>
       <button class="btn" type="submit">Sign In →</button>
     </form>
+
     <a href="/" class="back">← Back to Bot Status</a>
   </div>
 </body>
